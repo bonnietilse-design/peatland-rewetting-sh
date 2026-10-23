@@ -1,0 +1,15 @@
+name: peatland-sh
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - geopandas>=0.14
+  - pyogrio
+  - rasterio
+  - numpy
+  - pandas
+  - tabulate        # DataFrame.to_markdown() in the reports
+  - matplotlib
+  - requests
+  - scipy         # milp solver (HiGHS) for step 07
+  # GRASS (r.watershed) comes with QGIS; run scripts in the OSGeo4W Shell
