@@ -2,7 +2,7 @@
 
 Where are the peat soils in Schleswig-Holstein, how are they used, how much do they emit – and where would rewetting make the most sense?
 
-A QGIS / open-source portfolio project by **Bonnie Winter** (GIS-Akademie Hamburg, 2026).
+A QGIS / open-source portfolio project by **Bonnie Winter**.
 
 > **Status:** work in progress. All emission figures are **estimates** (area × emission factor) and are labelled as such.
 
