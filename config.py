@@ -244,3 +244,27 @@ HISTORICAL = {
 def aoi_label() -> str:
     """Short label for file names: test AOI name or 'sh' for the whole state."""
     return TEST_AOI_NAME if TEST_MODE else "sh"
+
+# ---------------------------------------------------------------------------
+# YOLO extension (scripts 06x, 06y, 06b – see docs/yolo_plan.md)
+# ---------------------------------------------------------------------------
+YOLO = {
+    # 1 m GeoTIFF of the block, exported from the Chronologen WCS
+    "map_tif": DATA_RAW / "historical" / "chronologen_1880_block.tif",
+    "tile_dir": DATA_INTERIM / "yolo" / "tiles",
+    "dataset_dir": DATA_INTERIM / "yolo" / "dataset",
+    "tile_index": DATA_INTERIM / "yolo" / "tiles.gpkg",
+    # Tufts are only ~12-15 px at 1 m. Tiles of 320 m are enlarged to 640 px
+    # (0.5 m/px), so a tuft becomes ~25 px - easier for YOLO, whose finest
+    # grid step is 8 px.
+    "tile_m": 320,
+    "tile_px": 640,
+    "classes": ["tuft", "torfstich"],
+    "labels": DATA_INTERIM / "yolo" / "labels.gpkg",   # layers tufts (points), torfstich (polygons)
+    # Labelled tuft points -> square boxes. Measured around the 400 labelled
+    # points: a tuft is ~12-15 m wide and tall, the point sits near its centre.
+    "tuft_box_m": 16,
+    "min_inside": 0.5,        # keep a Torfstich box if >= 50 % of it lies in the tile
+    "split": {"train": 0.70, "val": 0.15, "test": 0.15},
+    "seed": 42,
+}
