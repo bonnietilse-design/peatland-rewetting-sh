@@ -268,3 +268,31 @@ YOLO = {
     "split": {"train": 0.70, "val": 0.15, "test": 0.15},
     "seed": 42,
 }
+
+# Two areas for the YOLO workflow. "block" = the 36 km² hand-digitised block
+# (training, tuning, checking); "aoi" = the whole test area (application only,
+# with the thresholds tuned on the block). Scripts 06x, 06b and 06c take the
+# area as their first argument, e.g.  python scripts\06x_make_tiles.py aoi
+YOLO_AREAS = {
+    "block": {
+        "map_tif": YOLO["map_tif"],
+        "tile_dir": YOLO["tile_dir"],
+        "tile_index": YOLO["tile_index"],
+        "detections": DATA_INTERIM / "yolo" / "detections.csv",
+        "suffix": "",                  # layer/report names as before
+    },
+    "aoi": {
+        "map_tif": DATA_RAW / "historical" / "chronologen_1880_aoi.tif",
+        "tile_dir": DATA_INTERIM / "yolo" / "tiles_aoi",
+        "tile_index": DATA_INTERIM / "yolo" / "tiles_aoi.gpkg",
+        "detections": DATA_INTERIM / "yolo" / "detections_aoi.csv",
+        "suffix": "_aoi",
+    },
+}
+YOLO_RULES = DATA_INTERIM / "yolo" / "rule_parameters.json"   # written by 06c on the block
+
+
+def yolo_area(argv: list) -> tuple:
+    """Area name + settings from the first command-line argument (default: block)."""
+    name = argv[1] if len(argv) > 1 and argv[1] in YOLO_AREAS else "block"
+    return name, YOLO_AREAS[name]
