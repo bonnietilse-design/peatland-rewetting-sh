@@ -10,7 +10,10 @@ Output: data/interim/yolo/tiles/<tile_id>.png  (+ .wld world file, 640 × 640 px
 Each tile covers tile_m × tile_m metres and is enlarged to tile_px pixels with
 nearest-neighbour resampling (no new detail, but symbols get more pixels).
 Run in the OSGeo4W Shell (needs GDAL):
-    python scripts\\06x_make_tiles.py
+    python scripts\\06x_make_tiles.py          the hand-digitised block (default)
+    python scripts\\06x_make_tiles.py aoi      the whole test area – only tiles that
+                                              touch the AOI polygon are written
+Paths per area: config.YOLO_AREAS.
 """
 import sys
 from pathlib import Path
@@ -27,10 +30,23 @@ Y = cfg.YOLO
 gdal.UseExceptions()
 
 
+def aoi_geometry():
+    """AOI polygon (OGR geometry in EPSG:25832) for skipping tiles outside it."""
+    ds = ogr.Open(str(cfg.TEST_AOI))
+    lyr = ds.GetLayer(0)
+    geom = None
+    for f in lyr:
+        g = f.GetGeometryRef().Clone()
+        geom = g if geom is None else geom.Union(g)
+    return geom
+
+
 def main() -> None:
-    src_path = Y["map_tif"]
+    area, A = cfg.yolo_area(sys.argv)
+    src_path = A["map_tif"]
     if not src_path.exists():
-        sys.exit(f"Missing {src_path} – export the WCS layer for the block first.")
+        sys.exit(f"Missing {src_path} – export the WCS layer for the {area} first.")
+    aoi = aoi_geometry() if area == "aoi" else None
     src = gdal.Open(str(src_path))
     gt = src.GetGeoTransform()
     res = gt[1]
@@ -44,11 +60,11 @@ def main() -> None:
     log.info("source %d × %d px at %.2f m → %d × %d tiles of %d m",
              w_px, h_px, res, n_cols, n_rows, Y["tile_m"])
 
-    out_dir = Y["tile_dir"]
+    out_dir = A["tile_dir"]
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # tile index (GeoPackage)
-    idx_path = Y["tile_index"]
+    idx_path = A["tile_index"]
     drv = ogr.GetDriverByName("GPKG")
     if idx_path.exists():
         drv.DeleteDataSource(str(idx_path))
@@ -62,14 +78,24 @@ def main() -> None:
         lyr.CreateField(ogr.FieldDefn(name, typ))
 
     band = src.GetRasterBand(1)
-    n_written = 0
+    n_written = n_skipped = 0
     for r in range(n_rows):
         for c in range(n_cols):
             xoff, yoff = c * step_px, r * step_px
             xs, ys = min(step_px, w_px - xoff), min(step_px, h_px - yoff)
-            tile_id = f"r{r:02d}_c{c:02d}"
+            tile_id = f"r{r:02d}_c{c:02d}" if n_rows <= 100 and n_cols <= 100 else f"r{r:03d}_c{c:03d}"
             tx0 = x0 + xoff * res
             ty1 = y1 - yoff * res
+            if aoi is not None:
+                ring = ogr.Geometry(ogr.wkbLinearRing)
+                for x, y in ((tx0, ty1 - Y["tile_m"]), (tx0 + Y["tile_m"], ty1 - Y["tile_m"]),
+                             (tx0 + Y["tile_m"], ty1), (tx0, ty1), (tx0, ty1 - Y["tile_m"])):
+                    ring.AddPoint_2D(x, y)
+                fp = ogr.Geometry(ogr.wkbPolygon)
+                fp.AddGeometry(ring)
+                if not fp.Intersects(aoi):
+                    n_skipped += 1
+                    continue
             # partial tiles at the right/bottom edge are padded with white
             # paper, so every tile has the same size and pixel spacing
             out = out_dir / f"{tile_id}.png"
@@ -105,12 +131,15 @@ def main() -> None:
             f.SetField("ink_share", round(ink, 4))
             lyr.CreateFeature(f)
             n_written += 1
+            if n_written % 500 == 0:
+                log.info("%d tiles written", n_written)
     ds = None
     src = None
 
-    write_report("06x_make_tiles", "Map tiles for YOLO", [
+    write_report("06x_make_tiles" + A["suffix"], f"Map tiles for YOLO ({area})", [
         f"- source: `{src_path.name}`, {w_px} × {h_px} px at {res:g} m",
-        f"- tiles: **{n_written}** ({n_rows} rows × {n_cols} columns), "
+        f"- tiles: **{n_written}** of {n_rows} rows × {n_cols} columns"
+        + (f" ({n_skipped} outside the AOI skipped)" if n_skipped else "") + ", "
         f"{Y['tile_m']} m → {Y['tile_px']} px ({Y['tile_m'] / Y['tile_px']:g} m/px)",
         f"- images: `{out_dir.relative_to(cfg.ROOT)}` (PNG + world file .wld)",
         f"- index: `{idx_path.relative_to(cfg.ROOT)}`, layer `tiles` – set field "

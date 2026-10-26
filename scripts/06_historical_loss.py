@@ -20,6 +20,10 @@ This script
                    a difference in mapping concept (e.g. drained fen shown as
                    pasture or dry meadow in 1880), NOT new peat
   5. flags differences within the edge tolerance as possible position error.
+
+    python scripts\\06_historical_loss.py        hand digitising, digitised_extent
+    python scripts\\06_historical_loss.py yolo   automated layer yolo_1880_aoi (step 06c aoi),
+                                               whole test area; outputs named *_yolo
 """
 import re
 import sys
@@ -43,12 +47,29 @@ from peatsh.common import (add_area_ha, get_logger, load_aoi, read_layer,  # noq
 log = get_logger("06")
 H = cfg.HISTORICAL
 CLASSES = list(H["classes"])          # order = priority for gap filling
+SOURCE = "yolo" if "yolo" in sys.argv[1:] else "hand"
+SFX = "_yolo" if SOURCE == "yolo" else ""
+HEIDE_HA = 0.0
 
 
 # ---------------------------------------------------------------------------
 # 1  read + check
 # ---------------------------------------------------------------------------
 def read_hist() -> gpd.GeoDataFrame:
+    if SOURCE == "yolo":
+        try:
+            gdf = read_layer("yolo_1880_aoi")
+        except Exception:
+            sys.exit("Missing layer yolo_1880_aoi – run 06c_detections_to_polygons.py aoi first.")
+        # Automated "Heide" = tufts on open ground away from any moor, i.e. mostly
+        # heath on the dry geest - no evidence of peat. (Heath inside a moor was
+        # already turned into Moor by step 06c.) It is reported, not compared.
+        global HEIDE_HA
+        HEIDE_HA = gdf.loc[gdf.hist_type == "Heide"].area.sum() / 1e4
+        gdf = gdf[gdf.hist_type != "Heide"].copy()
+        gdf["evidence_codes"], gdf["single_torfstich"] = "", False
+        gdf["geometry"] = gdf.geometry.make_valid()
+        return gdf
     path = cfg.INPUTS["historical_peat"]
     if not path.exists():
         sys.exit(f"Missing {path} – digitise the 1880 map first (see docstring).")
@@ -89,6 +110,8 @@ def evidence_codes(row: pd.Series) -> pd.Series:
 # 2  extent + 3 gap closing
 # ---------------------------------------------------------------------------
 def study_extent(aoi: gpd.GeoDataFrame):
+    if SOURCE == "yolo":                         # the automated layer covers the whole AOI
+        return aoi.geometry.iloc[0]
     path = cfg.INPUTS["historical_extent"]
     if not path.exists():
         sys.exit(f"Missing {path} – draw the area you checked on the 1880 map.")
@@ -136,7 +159,8 @@ def main() -> None:
     n_poly = len(hist)
     raw_ha = hist.area.sum() / 10_000
     n_single = int(hist.single_torfstich.sum())
-    no_code = hist[(hist.hist_type == "Moor") & (hist.evidence_codes == "")]
+    no_code = (hist[(hist.hist_type == "Moor") & (hist.evidence_codes == "")]
+               if SOURCE == "hand" else hist.iloc[0:0])
 
     # clip to extent, dissolve per class
     hist["geometry"] = hist.geometry.intersection(extent)
@@ -146,7 +170,7 @@ def main() -> None:
     by_class, gap_ha = close_gaps(by_class, extent)
     hist_cls = to_gdf(by_class, "hist_type")
     hist_cls["peat_1880"] = hist_cls.hist_type.map(H["classes"])
-    write_layer(hist_cls, "hist_1880")
+    write_layer(hist_cls, "hist_1880" + SFX)
 
     # today's organic soils inside the extent
     soil_col, soil_lab = cfg.FIELDS["soil_type"], cfg.FIELDS["soil_type_label"]
@@ -173,7 +197,7 @@ def main() -> None:
     comp = add_area_ha(gpd.GeoDataFrame(
         pd.concat([kept, lost, only], ignore_index=True), crs=cfg.TARGET_CRS))
     comp = comp.rename(columns={soil_col: "today_type"})
-    write_layer(comp, "hist_compare")
+    write_layer(comp, "hist_compare" + SFX)
 
     # 5  edge tolerance: how much of the difference could be position error?
     tol = H["edge_tolerance_m"]
@@ -204,16 +228,25 @@ def main() -> None:
                           aggfunc="sum", fill_value=0).reindex(CLASSES).dropna(how="all"))
     only_by = (comp[comp.category == "only_today"].groupby("today_type").area_ha.sum()
                .sort_values(ascending=False))
-    cross.to_csv(cfg.OUTPUTS / f"06_hist_x_today_{cfg.aoi_label()}.csv")
-    per_class.to_csv(cfg.OUTPUTS / f"06_hist_per_class_{cfg.aoi_label()}.csv")
+    cross.to_csv(cfg.OUTPUTS / f"06_hist_x_today{SFX}_{cfg.aoi_label()}.csv")
+    per_class.to_csv(cfg.OUTPUTS / f"06_hist_per_class{SFX}_{cfg.aoi_label()}.csv")
 
     plot_map(comp, extent)
 
-    write_report("06_historical", "Wet land 1878–80 vs. organic soils today", [
+    src_lines = ([f"- source: **hand digitising**, area checked (digitised_extent ∩ AOI): **{ext_ha:,.0f} ha**",
+                  f"- polygons digitised: {n_poly} ({raw_ha:,.0f} ha before clipping)"]
+                 if SOURCE == "hand" else
+                 [f"- source: **automated reading (YOLO + rules, step 06c aoi)**, whole test area: "
+                  f"**{ext_ha:,.0f} ha**",
+                  "- in the hand-digitised block the automation agrees with the hand digitising on "
+                  "~90 % of the area; outside it there is no reference (see report 06c_yolo_aoi)",
+                  f"- automated Heide ({HEIDE_HA:,.0f} ha) is left out: heath away from any moor is "
+                  "mostly dry geest heath, not evidence of peat"])
+    write_report("06_historical" + SFX, "Wet land 1878–80 vs. organic soils today"
+                 + (" – automated, whole test area" if SOURCE == "yolo" else ""), [
         "> Compares map *signatures* of 1878–80 with today's *soil* map. The two "
         "use different concepts, so differences are not simply gains or losses.", "",
-        f"- area checked on the 1880 map (digitised_extent ∩ AOI): **{ext_ha:,.0f} ha**",
-        f"- polygons digitised: {n_poly} ({raw_ha:,.0f} ha before clipping)",
+        *src_lines,
         f"- gaps ≤ {H['gap_close_m']} m closed (roads, ditches): {gap_ha:,.1f} ha added",
         f"- wet signatures 1880: **{h_ha:,.0f} ha** ({h_ha / ext_ha:.0%} of the extent)",
         f"- organic soils today: **{t_ha:,.0f} ha** ({t_ha / ext_ha:.0%})", "",
@@ -258,11 +291,13 @@ def plot_map(comp: gpd.GeoDataFrame, extent) -> None:
         Patch(color=colours["lost"], label="lost – wet 1880, no organic soil today"),
         Patch(color=colours["only_today"], label="only today – mapping-concept difference")],
         loc="lower left", fontsize=7, framealpha=0.95)
-    ax.set_title("Wet land 1878–80 vs. organic soils today", fontsize=10)
+    ax.set_title("Wet land 1878–80 vs. organic soils today"
+                 + ("\n(1880 layer read automatically – YOLO + rules)" if SOURCE == "yolo" else ""),
+                 fontsize=10)
     ax.set_axis_off()
     fig.text(0.01, 0.01, "1880 map © GeoBasis-DE/LVermGeo SH/CC BY 4.0 · soils: Thünen (CC BY 4.0)",
              fontsize=6, color="#555")
-    out = cfg.OUTPUTS / f"06_historical_{cfg.aoi_label()}.png"
+    out = cfg.OUTPUTS / f"06_historical{SFX}_{cfg.aoi_label()}.png"
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
 
