@@ -2,7 +2,7 @@
 
 Where are the peat soils in Schleswig-Holstein, how are they used, how much do they emit – and where would rewetting make the most sense?
 
-A QGIS / open-source portfolio project by **Bonnie Winter** (GIS-Akademie Hamburg, 2026).
+A QGIS / open-source portfolio project by **Bonnie Winter** (2026).
 
 > All emission figures are **estimates** (area × national emission factors) and are labelled as such. Everything was run on a **test area** of 304 km² around the Sorge lowland (Meggerdorf, Bergenhusen, Tetenhusen); `TEST_MODE = False` in `config.py` runs the same steps for the whole state.
 
@@ -37,7 +37,7 @@ According to the Land Schleswig-Holstein (Moor-Klimaschutz, Jan 2024), carbon-ri
 | 08 | `08_monte_carlo.py` | 10,000 runs, skewed (two-piece normal) emission factors, two correlation scenarios | NumPy, SciPy |
 | 09 | `09_export_maps_pyqgis.py` | Atlas: one A4 page per municipality with ≥ 50 ha farmed peat (24 pages) | PyQGIS |
 
-Each step writes a short report to [`docs/reports/`](docs/reports/). A 19-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-23.pdf`](docs/peatland_project_report_2026-10-23.pdf).
+Each step writes a short report to [`docs/reports/`](docs/reports/). A 23-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
 
 ### Historical map (step 06)
 
