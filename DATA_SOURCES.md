@@ -5,7 +5,8 @@
 | Aktualisierte Kulisse organischer Böden in Deutschland (Wittnebel, Frank, Tiemeyer 2023), DOI 10.3220/DATA20230510130443-0 | Thünen-Institut | CC BY 4.0 | Wittnebel M, Frank S, Tiemeyer B (2023), Thünen Working Paper 212 | `data/raw/thuenen_organic_soils/` |
 | Feldblöcke Schleswig-Holstein, reference date 1.1.2026 (FB_20260101.gpkg) | Land SH | dl-de/zero-2.0 (TODO: confirm for 2026) | – | `data/raw/feldbloecke/` |
 | DGM1 (1 m terrain model) | LVermGeo SH, OpenGBD portal | CC BY 4.0 | © GeoBasis-DE/LVermGeo SH/CC-BY 4.0 | `data/raw/dgm1/` |
-| Preußische Landesaufnahme mit Chronologen bis 1950 (WCS/WMS) | LVermGeo SH | CC BY 4.0 (NOT the all-editions version – private use only) | © GeoBasis-DE/LVermGeo SH/CC-BY 4.0 | `data/raw/historical/` |
+| Preußische Landesaufnahme (Chronologen), WMS `https://dienste.gdi-sh.de/WMS_SH_FD_Chronologen`, layer `Chronologen_1_1878-1880` | LVermGeo SH (Darstellungsdienst, kostenfrei) | CC BY 4.0 | © GeoBasis-DE/LVermGeo SH/CC BY 4.0 | digitised peat extent in `data/raw/historical/` |
+| Legend for digitising: "Zeichen-Erklärung für die Messtischblätter 1:25 000" (Kgl. Preuß. Landesaufnahme, 1898; reprint 1988, LVermA NRW), [PDF](https://www.bezreg-koeln.nrw.de/system/files/media/document/file/geobasis_tk_hist_zeichenerklaerung_1891_neuaufnahme.pdf) | Geobasis NRW (Bezirksregierung Köln) | free of charge; dl-de/zero-2.0 recommended by provider | Geobasis NRW | used for the classes in `docs/digitising_legend.png` |
 | VG250 administrative boundaries | BKG | dl-de/by-2.0 | © GeoBasis-DE / BKG (year) | `data/raw/vg250/` |
 | Protected areas (FFH, NSG) | LfU SH | TODO – check | TODO | `data/raw/protected/` |
 

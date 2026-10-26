@@ -269,13 +269,24 @@ def build_layout(L: dict) -> QgsPrintLayout:
     def num(field):   # English thousands separator, e.g. 29,809
         return f"[% format_number(\"{field}\", 0, 'en') %]"
 
+    def chosen_line():
+        """Municipalities get a page for their farmed peat, not for the
+        optimisation result - so say it plainly when nothing was chosen."""
+        target = f"{cfg.OPTIMISATION['target_savings_t']:,}"
+        return (
+            "[% CASE WHEN \"peat_in_chosen_ha\" < 0.5 "
+            f"THEN 'No catchment chosen at the {target} t target' "
+            "ELSE 'Farmed peat in chosen catchments: ' "
+            "|| format_number(\"peat_in_chosen_ha\", 0, 'en') || ' ha (' "
+            "|| format_number(\"share_chosen\", 0, 'en') || ' %)' END %]"
+        )
+
     figures = (
         f"Farmed peat: {num('farm_peat_ha')} ha\n"
         f"   grassland {num('grass_ha')} ha · cropland {num('crop_ha')} ha\n"
         f"Current emissions: ≈ {num('em_now_t')} t CO2-eq/yr\n"
         f"Saving if all rewetted: ≈ {num('saving_t')} t CO2-eq/yr\n"
-        f"Farmed peat in chosen catchments: {num('peat_in_chosen_ha')} ha "
-        f"({num('share_chosen')} %)"
+        + chosen_line()
     )
     text_label(layout, figures, 205, 92, 84, 20, size=8.5)
 

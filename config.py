@@ -48,6 +48,8 @@ INPUTS = {
     "vg250_gem": DATA_RAW / "vg250" / "VG250_GEM.shp",
     # Historical bog/fen extent digitised from the Preußische Landesaufnahme
     "historical_peat": DATA_RAW / "historical" / "peat_1880_digitised.gpkg",
+    # Area that was actually checked on the 1880 map (step 06 compares only here)
+    "historical_extent": DATA_RAW / "historical" / "digitised_extent.gpkg",
     # Protected areas (FFH, NSG) - LfU SH, check licence before publishing
     "protected_areas": DATA_RAW / "protected" / "TODO_filename.gpkg",
 }
@@ -211,6 +213,31 @@ MONTE_CARLO = {
     #   per_parcel - independent draw per Feldblock (deviations cancel out)
     #                -> narrowest range
     # The truth lies in between: neighbouring fields share drainage systems.
+}
+
+# ---------------------------------------------------------------------------
+# Historical comparison (step 06)
+# ---------------------------------------------------------------------------
+# Classes digitised from the 1878-80 map (legend: Zeichen-Erklärung 1898,
+# see docs/digitising_legend.png) and what they say about peat.
+HISTORICAL = {
+    "layer": "peat_1880",
+    "extent_layer": "digitised_extent",
+    "classes": {                       # hist_type -> peat evidence in 1880
+        "Moor": "certain",             # Sumpf, Bruch, Moor (+ Torfstich)
+        "nasser Boden": "likely",
+        "nasse Wiese": "likely",
+        "Heide": "possible",           # lowland heath next to moor only
+    },
+    # Roads and ditches were mostly left out while digitising. Gaps between
+    # neighbouring 1880 polygons up to this width are closed (buffer out and
+    # back in) and given to the neighbouring class with the highest priority
+    # (order of "classes" above).
+    "gap_close_m": 30,                 # 15 m closed only 0.1 ha (roads + ditches wider)
+    # Positional tolerance for the comparison: hand digitising + 1880 survey
+    # + soil-map generalisation. Differences within this distance of the other
+    # layer's boundary are reported as "edge" (could be position error).
+    "edge_tolerance_m": 25,
 }
 
 
