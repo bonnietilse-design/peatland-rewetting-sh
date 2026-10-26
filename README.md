@@ -36,7 +36,7 @@ According to the Land Schleswig-Holstein (Moor-Klimaschutz, Jan 2024), carbon-ri
 | 06 | `06_historical_loss.py` | Wet signatures from the Preußische Landesaufnahme 1878–80 vs. today's soil map – hand-digitised block, or the automated layer for the whole test area (`yolo`) | QGIS, GeoPandas, Shapely |
 | 07 | `07_optimisation.py` | Minimum area for a CO2 target: parcel ranking, parcel optimum, catchment optimum | SciPy `milp` / HiGHS (binary integer programming) |
 | 08 | `08_monte_carlo.py` | 10,000 runs, skewed (two-piece normal) emission factors, two correlation scenarios | NumPy, SciPy |
-| 09 | `09_export_maps_pyqgis.py` | Atlas: one A4 page per municipality with ≥ 50 ha farmed peat (24 pages) – [web version](outputs/maps/atlas_gemeinden_web.pdf) | PyQGIS |
+| 09 | `09_export_maps_pyqgis.py` | Atlas: one A4 page per municipality with ≥ 50 ha farmed peat (24 pages) – [web version](docs/atlas_gemeinden_web.pdf) | PyQGIS |
 
 Each step writes a short report to [`docs/reports/`](docs/reports/). A 32-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
 
