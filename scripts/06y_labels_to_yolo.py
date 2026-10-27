@@ -18,6 +18,12 @@ Split: tiles that share an edge stay together (no near-duplicate pieces in
 both training and test), and each split gets tiles with Torfstich, with tufts
 only and without symbols (stratified, fixed seed).
 
+Second round: tiles of the whole test area (tiles_aoi.gpkg, use = 'label')
+are added to TRAINING only, with the prefix "aoi_". The block tiles keep
+exactly the split of round 1, so val/test stay the same and the two models
+can be compared fairly. Pick extra tiles away from the blind check points of
+step 06v, or that check is no longer independent.
+
 Run in the OSGeo4W Shell:  python scripts\\06y_labels_to_yolo.py
 """
 import random
@@ -39,11 +45,25 @@ Y = cfg.YOLO
 CLS = {name: i for i, name in enumerate(Y["classes"])}
 
 
+def labelled(index_path: Path) -> gpd.GeoDataFrame:
+    if not index_path.exists():
+        return gpd.GeoDataFrame()
+    t = gpd.read_file(index_path, layer="tiles")
+    return t[t["use"].fillna("").str.strip().str.lower().isin(["label", "done"])].copy()
+
+
 def read_inputs():
-    tiles = gpd.read_file(Y["tile_index"], layer="tiles")
-    tiles = tiles[tiles["use"].fillna("").str.strip().str.lower().isin(["label", "done"])]
+    tiles = labelled(Y["tile_index"])
     if tiles.empty:
         sys.exit("No tiles with use = 'label' in tiles.gpkg – save the edits in QGIS first.")
+    tiles["name"], tiles["src_dir"], tiles["extra"] = tiles.tile_id, str(Y["tile_dir"]), 0
+    extra = labelled(cfg.YOLO_AREAS["aoi"]["tile_index"])
+    if len(extra):
+        extra["name"] = "aoi_" + extra.tile_id
+        extra["src_dir"], extra["extra"] = str(cfg.YOLO_AREAS["aoi"]["tile_dir"]), 1
+        cols = [c for c in tiles.columns if c in extra.columns]
+        tiles = gpd.GeoDataFrame(pd.concat([tiles[cols], extra[cols]], ignore_index=True),
+                                 crs=tiles.crs)
     tufts = gpd.read_file(Y["labels"], layer="tufts").to_crs(cfg.TARGET_CRS)
     torf = gpd.read_file(Y["labels"], layer="torfstich").to_crs(cfg.TARGET_CRS)
     tufts = tufts[tufts.geometry.notna() & ~tufts.geometry.is_empty]
@@ -135,31 +155,33 @@ def main() -> None:
     lines_per_tile, kept_all = {}, []
     for t in tiles.itertuples():
         lines, kept = yolo_lines(t.geometry, objs)
-        lines_per_tile[t.tile_id] = lines
+        lines_per_tile[t.name] = lines
         for k in kept:
-            k["tile_id"] = t.tile_id
+            k["tile_id"] = t.name
         kept_all += kept
     tiles["n_tuft"] = [sum(l.startswith(f"{CLS['tuft']} ") for l in lines_per_tile[t])
-                       for t in tiles.tile_id]
+                       for t in tiles.name]
     tiles["n_torfstich"] = [sum(l.startswith(f"{CLS['torfstich']} ") for l in lines_per_tile[t])
-                            for t in tiles.tile_id]
+                            for t in tiles.name]
     tiles["content"] = ["torfstich" if b else "tufts" if a else "empty"
                         for a, b in zip(tiles.n_tuft, tiles.n_torfstich)]
-    split = split_tiles(tiles)
-    tiles["split"] = tiles.tile_id.map(split)
+    block = tiles[tiles.extra == 0]
+    split = split_tiles(block)                       # same as round 1
+    tiles["split"] = [split.get(t, "train") if e == 0 else "train"
+                      for t, e in zip(tiles.tile_id, tiles.extra)]
 
     for t in tiles.itertuples():
-        src = Y["tile_dir"] / f"{t.tile_id}.png"
+        src = Path(t.src_dir) / f"{t.tile_id}.png"
         if not src.exists():
             sys.exit(f"Missing tile image {src} – run 06x first.")
         img_dir = ds / "images" / t.split
         lab_dir = ds / "labels" / t.split
         img_dir.mkdir(parents=True, exist_ok=True)
         lab_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, img_dir / src.name)
-        (lab_dir / f"{t.tile_id}.txt").write_text("\n".join(lines_per_tile[t.tile_id])
-                                                  + ("\n" if lines_per_tile[t.tile_id] else ""),
-                                                  encoding="utf-8")
+        shutil.copy2(src, img_dir / f"{t.name}.png")
+        lines = lines_per_tile[t.name]
+        (lab_dir / f"{t.name}.txt").write_text("\n".join(lines) + ("\n" if lines else ""),
+                                               encoding="utf-8")
 
     yaml = [f"path: {ds.as_posix()}", "train: images/train", "val: images/val",
             "test: images/test", "names:"] + [f"  {i}: {n}" for i, n in enumerate(Y["classes"])]
@@ -167,7 +189,7 @@ def main() -> None:
 
     check = gpd.GeoDataFrame(kept_all, crs=cfg.TARGET_CRS)
     if len(check):
-        check["split"] = check.tile_id.map(split)
+        check["split"] = check.tile_id.map(dict(zip(tiles.name, tiles.split)))
         check.to_file(ds / "boxes.gpkg", layer="yolo_boxes", driver="GPKG")
     tiles.drop(columns="geometry").to_csv(ds / "tiles_split.csv", index=False)
 
@@ -177,14 +199,15 @@ def main() -> None:
          .reindex(["train", "val", "test"]).fillna(0).astype(int))
     outside = len(tufts) - int(tiles.n_tuft.sum())
     write_report("06y_labels_to_yolo", "YOLO dataset from QGIS labels", [
-        f"- labelled tiles: **{len(tiles)}** ({Y['tile_m']} m → {Y['tile_px']} px)",
+        f"- labelled tiles: **{len(tiles)}** ({Y['tile_m']} m → {Y['tile_px']} px), "
+        f"of which {int(tiles.extra.sum())} from the whole test area (training only)",
         f"- objects: {int(tiles.n_tuft.sum())} tufts (boxes {Y['tuft_box_m']} m), "
         f"{int(tiles.n_torfstich.sum())} Torfstich chains",
         f"- tuft points outside the labelled tiles (ignored): {outside}", "",
         "Split (edge-neighbouring tiles kept together, stratified by content, seed "
         f"{Y['seed']}):", "", s.to_markdown(), "",
         "| split | tiles |", "|---|---|",
-        *[f"| {k} | {', '.join(sorted(tiles.tile_id[tiles.split == k]))} |"
+        *[f"| {k} | {', '.join(sorted(tiles.name[tiles.split == k]))} |"
           for k in ("train", "val", "test")], "",
         f"Dataset: `{ds.relative_to(cfg.ROOT)}` – check the boxes in QGIS: "
         "`boxes.gpkg` over the tile PNGs.",

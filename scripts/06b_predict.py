@@ -5,6 +5,7 @@ Runs in the YOLO environment (plain Command Prompt, yolo-env activated):
     python scripts\\06b_predict.py                 block (default), best.pt of train2, conf 0.20
     python scripts\\06b_predict.py aoi             whole test area
     python scripts\\06b_predict.py aoi <weights> 0.20
+    python scripts\\06b_predict.py aoi <weights> 0.15/0.20   per class: tuft / torfstich
     python scripts\\06b_predict.py aoi spot        only the spot-check images (≈ 1 min)
 
 Reads   the tiles of the area (step 06x) + .wld world files
@@ -78,7 +79,12 @@ def main() -> None:
     weights = Path(args[0]) if args else DEFAULT_WEIGHTS
     if not weights.is_absolute():
         weights = ROOT / weights
-    conf = float(args[1]) if len(args) > 1 else 0.20
+    # one threshold for both classes ("0.20") or one per class ("0.15/0.20" =
+    # tuft / torfstich) – models differ in how confident they are per class
+    conf_arg = args[1] if len(args) > 1 else "0.20"
+    parts = [float(v) for v in conf_arg.split("/")]
+    conf_cls = {name: parts[min(i, len(parts) - 1)] for i, name in NAMES.items()}
+    conf = min(conf_cls.values())
     tiles = sorted(A["tile_dir"].glob("*.png"))
     if not tiles:
         sys.exit(f"No tiles in {A['tile_dir']} – run 06x {area} first.")
@@ -115,6 +121,8 @@ def main() -> None:
             Image.fromarray(res.plot(line_width=1, font_size=8)[:, :, ::-1]).save(spot_dir / f"{png.stem}.jpg")
         b = res.boxes
         for (cx, cy, w, h), c, k in zip(b.xywh.numpy(), b.conf.numpy(), b.cls.numpy().astype(int)):
+            if c < conf_cls[NAMES[k]]:
+                continue
             rows.append({"cls": NAMES[k],
                          "x": x0c + cx * dx - dx / 2,     # world file refers to pixel centres
                          "y": y0c + cy * dy - dy / 2,
@@ -133,7 +141,7 @@ def main() -> None:
         for d in merged:
             w.writerow({k: (round(v, 2) if isinstance(v, float) else v) for k, v in d.items()})
     n = {name: sum(d["cls"] == name for d in merged) for name in NAMES.values()}
-    print(f"\nmodel {weights.name}, conf ≥ {conf}: {len(rows)} raw → {len(merged)} after merging")
+    print(f"\nmodel {weights.parent.parent.name}/{weights.name}, conf ≥ {conf_cls}: {len(rows)} raw → {len(merged)} after merging")
     print(", ".join(f"{k}: {v}" for k, v in n.items()))
     print(f"written: {out}")
     if spot:

@@ -17,8 +17,10 @@ Method (on a 25 m grid over the block)
      buildings and field lines fall outside these limits. Count per cell,
      averaged over a moving window → dash density.
   2. Tufts: detections per cell, summed over a 3 × 3 window (75 m).
-  3. Torfstich: "recurring" = at least 2 chains within 275 m; cells within
-     ~60 m of such a chain become Moor.
+  3. Torfstich: "recurring" = at least N chains within 275 m; cells within
+     a radius R of such a chain become Moor. N (2–4) and R (~40 or ~60 m) are
+     tuned on the west half with T and D (added after the second YOLO round:
+     a model that finds more Torfstich made the fixed N = 2 spread Moor too far).
   4. Rules (as for the hand digitising):
        Moor        tufts ≥ T and dashes ≥ D   (Bruch)  –  or recurring Torfstich
        Heide       tufts ≥ T and dashes <  D
@@ -71,8 +73,32 @@ gdal.UseExceptions()
 Y = cfg.YOLO
 CELL = 25                                  # m
 DASH = {"max_h": 3, "min_w": 5, "max_w": 40, "window": 5,
-        "tuft_base_m": 10}    # flat marks this close to a detected tuft are its base line, not a dash
-TORF = {"recur_cells": 11, "near_cells": 5}   # 275 m, 125 m windows
+        "tuft_base_m": 10,    # flat marks this close to a detected tuft are its base line, not a dash
+        # dash density per FIELD: the map's own field lines (ink components
+        # longer than max_w) split the land into fields; the surveyors drew one
+        # signature per field, so the density is computed inside each field and
+        # does not leak across a field line into the neighbouring field.
+        "modes": ("window", "field"),       # both are tried in the tuning
+        # decision rule, set before the blind check: if both modes are within
+        # "tie" kappa on the west half, use "prefer" (the field method follows
+        # the digitising rule "boundaries follow the field line")
+        "prefer": "field", "tie": 0.01,
+        "field_res": 5,                     # m, grid for the field segmentation
+        "field_line_m": 80,                 # ink longer than this is a field line (long
+                                            # wet-meadow dashes reach 40-60 m and must not cut fields)
+        "field_min_ha": 0.2, "field_max_ha": 40}   # outside this range: window value
+TORF = {"recur_cells": 11,                 # 275 m window for "recurring"
+        "min_chains": (2, 3, 4),           # chains needed in that window (tuned)
+        "near_cells": (3, 5)}              # 75 m / 125 m window around them -> Moor (tuned)
+
+
+def torf_layers(torf, min_chains, near_cells):
+    """Recurring Torfstich and the cells around them that become Moor."""
+    k = TORF["recur_cells"]
+    n = np.rint(nd.uniform_filter(torf.astype(float), k, mode="constant") * k * k)
+    recurring = (n >= min_chains) & (torf > 0)
+    torf_moor = nd.binary_dilation(recurring, structure=np.ones((near_cells, near_cells)))
+    return recurring, torf_moor
 NAMES = {0: "–", 1: "Moor", 2: "nasse Wiese", 3: "Heide"}
 COLOURS = ["#ffffff", "#8c510a", "#2166ac", "#762a83"]
 
@@ -96,6 +122,9 @@ def dash_density(ds, n_r, n_c, gt, tufts, chunk=2500, margin=60):
     band = ds.GetRasterBand(1)
     W, H = ds.RasterXSize, ds.RasterYSize
     g = np.zeros((n_r, n_c))
+    f = DASH["field_res"]
+    g5 = np.zeros((H // f, W // f))                 # dashes per 5 m cell
+    line5 = np.zeros((H // f, W // f), bool)        # field lines on the 5 m grid
     total = 0
     for y0 in range(0, H, chunk):
         for x0 in range(0, W, chunk):
@@ -119,7 +148,47 @@ def dash_density(ds, n_r, n_c, gt, tufts, chunk=2500, margin=60):
             ok = (r < n_r) & (c < n_c)
             np.add.at(g, (r[ok], c[ok]), 1)
             total += int(ok.sum())
-    return nd.uniform_filter(g, DASH["window"], mode="nearest"), total
+            r5, c5 = cy[m] // f, cx[m] // f
+            ok5 = (r5 < g5.shape[0]) & (c5 < g5.shape[1])
+            np.add.at(g5, (r5[ok5], c5[ok5]), 1)
+            # field lines: long ink components (field boundaries, ditches, roads)
+            long_ids = np.flatnonzero(np.maximum(h, w) > DASH["field_line_m"]) + 1
+            if len(long_ids):
+                core_lab = lab[y0 - ya: min(y0 + chunk, H) - ya, x0 - xa: min(x0 + chunk, W) - xa]
+                lines = np.isin(core_lab, long_ids)
+                hh, ww = lines.shape[0] // f * f, lines.shape[1] // f * f
+                blk = lines[:hh, :ww].reshape(hh // f, f, ww // f, f).any(axis=(1, 3))
+                line5[y0 // f: y0 // f + blk.shape[0], x0 // f: x0 // f + blk.shape[1]] |= blk
+    return nd.uniform_filter(g, DASH["window"], mode="nearest"), total, g5, line5
+
+
+def field_density(window, g5, line5, n_r, n_c):
+    """Dash density per field (same unit as the window density: dashes per
+    25 m cell). Fields = areas enclosed by the map's field lines. Very small
+    slivers and very large open areas keep the window value."""
+    f = DASH["field_res"]
+    barrier = nd.binary_dilation(line5, iterations=1)       # close gaps of up to ~10 m
+    lab, n = nd.label(~barrier)                             # 4-connected fields
+    cells = np.bincount(lab.ravel(), minlength=n + 1).astype(float)
+    dashes = np.bincount(lab.ravel(), weights=g5.ravel(), minlength=n + 1)
+    per_cell = (CELL // f) ** 2                             # 5 m cells per 25 m cell
+    dens = np.where(cells > 0, dashes / np.maximum(cells, 1) * per_cell, np.nan)
+    ha = cells * f * f / 1e4
+    dens[(ha < DASH["field_min_ha"]) | (ha > DASH["field_max_ha"])] = np.nan
+    dens[0] = np.nan                                        # the field lines themselves
+    d5 = dens[lab]
+    k = CELL // f
+    d5 = d5[: n_r * k, : n_c * k]
+    pad_r, pad_c = n_r * k - d5.shape[0], n_c * k - d5.shape[1]
+    if pad_r or pad_c:
+        d5 = np.pad(d5, ((0, pad_r), (0, pad_c)), constant_values=np.nan)
+    blocks = d5.reshape(n_r, k, n_c, k)
+    with np.errstate(invalid="ignore"):
+        cnt = np.isfinite(blocks).sum(axis=(1, 3))
+        val = np.nansum(blocks, axis=(1, 3)) / np.maximum(cnt, 1)
+    out = np.where(cnt > 0, val, window)
+    n_used = int(((ha >= DASH["field_min_ha"]) & (ha <= DASH["field_max_ha"]))[1:].sum())
+    return out, n_used
 
 
 def count_grid(df, gt, n_r, n_c):
@@ -194,9 +263,10 @@ def heath_in_moor(p, recurring, r_cells):
 
 
 def majority(a):
-    def mode(v):
-        return np.bincount(v.astype(int), minlength=4).argmax()
-    return nd.generic_filter(a, mode, size=3, mode="nearest").astype(int)
+    """3 × 3 majority (ties → lower class code), vectorised with integer counts."""
+    k = np.ones((3, 3), int)
+    counts = np.stack([nd.convolve((a == c).astype(int), k, mode="nearest") for c in range(4)])
+    return counts.argmax(axis=0).astype(int)
 
 
 def kappa(ref, pred, k=4):
@@ -237,11 +307,16 @@ def save_outputs(pred, det, gt, proj, n_r, n_c, suffix):
     write_layer(pts, f"yolo_detections{suffix}")
 
 
-def apply_aoi(det, dash, n_dash, tuft_w, recurring, torf_moor, gt, proj, n_r, n_c, A):
+def apply_aoi(det, dashes, n_dash, tuft_w, torf, gt, proj, n_r, n_c, A):
     """Whole test area: fixed thresholds from the block, no tuning."""
     if not cfg.YOLO_RULES.exists():
         sys.exit(f"Missing {cfg.YOLO_RULES} – run 06c on the block first (it tunes the thresholds).")
     P = json.loads(cfg.YOLO_RULES.read_text(encoding="utf-8"))
+    P.setdefault("torf_min", 2)
+    P.setdefault("torf_near", 5)
+    P.setdefault("dash_mode", "window")
+    dash = dashes[P["dash_mode"]]
+    recurring, torf_moor = torf_layers(torf, P["torf_min"], P["torf_near"])
     pred = heath_in_moor(classify(tuft_w, dash, torf_moor, P["t_min"], P["d_min"]),
                          recurring, P["r_heath"])
     aoi = mask_raster(cfg.TEST_AOI, gt, proj, n_r, n_c)
@@ -281,7 +356,9 @@ def apply_aoi(det, dash, n_dash, tuft_w, recurring, torf_moor, gt, proj, n_r, n_
         f"{int((det.cls == 'torfstich').sum()):,} Torfstich (06b aoi)",
         f"- dash components: {n_dash:,}",
         f"- thresholds from the block (not re-tuned): tufts ≥ {P['t_min']} per 75 m window, "
-        f"dash density ≥ {P['d_min']:.3f}, heath-in-moor distance {P['r_heath'] // 2 * CELL} m",
+        f"dash density ({P['dash_mode']}) ≥ {P['d_min']:.3f}, heath-in-moor distance {P['r_heath'] // 2 * CELL} m, "
+        f"recurring Torfstich ≥ {P['torf_min']} chains per 275 m → Moor within "
+        f"{P['torf_near'] // 2 * CELL + CELL // 2} m",
         f"- AOI: {aoi.sum() * ha:,.0f} ha", "",
         tab.to_markdown(index=False), "",
         f"Consistency check inside the hand-digitised block (same thresholds, AOI tiling): "
@@ -304,40 +381,66 @@ def main() -> None:
     ds, gt, proj = open_map(A["map_tif"])
     n_r, n_c = ds.RasterYSize // CELL, ds.RasterXSize // CELL
 
-    dash, n_dash = dash_density(ds, n_r, n_c, gt, det[det.cls == "tuft"])
+    dash_w, n_dash, g5, line5 = dash_density(ds, n_r, n_c, gt, det[det.cls == "tuft"])
     ds = None
+    dash_f, n_fields = field_density(dash_w, g5, line5, n_r, n_c)
+    del g5, line5
+    dashes = {"window": dash_w, "field": dash_f}
+    log.info("dash components: %d; fields from the map's field lines: %d", n_dash, n_fields)
     tuft = count_grid(det[det.cls == "tuft"], gt, n_r, n_c)
     tuft_w = nd.uniform_filter(tuft, 3, mode="constant") * 9            # sum over 3 × 3
     torf = count_grid(det[det.cls == "torfstich"], gt, n_r, n_c)
-    k = TORF["recur_cells"]
-    recurring = (nd.uniform_filter(torf, k, mode="constant") * k * k >= 2) & (torf > 0)
-    torf_moor = nd.binary_dilation(recurring, structure=np.ones((TORF["near_cells"],) * 2))
 
     if area == "aoi":
-        apply_aoi(det, dash, n_dash, tuft_w, recurring, torf_moor, gt, proj, n_r, n_c, A)
+        apply_aoi(det, dashes, n_dash, tuft_w, torf, gt, proj, n_r, n_c, A)
         return
 
     hand = hand_raster(gt, proj, n_r, n_c)
     west = np.zeros_like(hand, bool)
     west[:, : n_c // 2] = True
 
-    # tune T, D and the heath-in-moor distance on the west half
-    d_grid = np.unique(np.round(np.quantile(dash[dash > 0], np.linspace(0.05, 0.8, 31)), 3))
-    best = None
-    for t in (1, 2, 3, 4, 5, 6):
-        for d in d_grid:
-            base = classify(tuft_w, dash, torf_moor, t, d)
-            for r_h in (9, 17):
-                pred = heath_in_moor(base, recurring, r_h)
-                kap = kappa(hand[west], pred[west])[0]
-                if best is None or kap > best[0]:
-                    best = (kap, t, d, r_h)
-    _, t_min, d_min, r_heath = best
+    # tune T, D, the Torfstich rule and the heath-in-moor distance on the west half.
+    # Ties: the first (= strictest Torfstich rule, smallest T) wins, so the
+    # Torfstich rule is only loosened if that really helps.
+    best, by_mode = None, {}
+    for mode in DASH["modes"]:
+        dash = dashes[mode]
+        d_grid = np.unique(np.round(np.quantile(dash[dash > 0], np.linspace(0.05, 0.8, 31)), 3))
+        for m_c in sorted(TORF["min_chains"], reverse=True):
+            for n_c_ in TORF["near_cells"]:
+                recurring, torf_moor = torf_layers(torf, m_c, n_c_)
+                for t in (1, 2, 3, 4, 5, 6):
+                    for d in d_grid:
+                        base = classify(tuft_w, dash, torf_moor, t, d)
+                        for r_h in (9, 17):
+                            pred = heath_in_moor(base, recurring, r_h)
+                            kap = kappa(hand[west], pred[west])[0]
+                            if mode not in by_mode or kap > by_mode[mode][0] + 1e-9:
+                                by_mode[mode] = (kap, t, d, r_h, m_c, n_c_)
+                            if best is None or kap > best[0] + 1e-9:
+                                best = (kap, t, d, r_h, m_c, n_c_, mode)
+    _, t_min, d_min, r_heath, torf_min, torf_near, dash_mode = best
+    pref = DASH.get("prefer")
+    if pref in by_mode and pref != dash_mode and by_mode[pref][0] >= best[0] - DASH["tie"]:
+        _, t_min, d_min, r_heath, torf_min, torf_near = by_mode[pref]
+        dash_mode = pref
+    dash = dashes[dash_mode]
+    mode_rows = []
+    for mode, (k_w, t_, d_, rh_, mc_, nc_) in by_mode.items():
+        rec_, tm_ = torf_layers(torf, mc_, nc_)
+        pr_ = heath_in_moor(classify(tuft_w, dashes[mode], tm_, t_, d_), rec_, rh_)
+        mode_rows.append({"dash density": mode, "κ west (tuning)": round(k_w, 3),
+                          "κ east (check)": round(kappa(hand[~west], pr_[~west])[0], 3)})
+    recurring, torf_moor = torf_layers(torf, torf_min, torf_near)
     pred = heath_in_moor(classify(tuft_w, dash, torf_moor, t_min, d_min), recurring, r_heath)
-    log.info("tuned on west half: tufts ≥ %d per 75 m window, dash density ≥ %.3f, "
-             "heath-in-moor distance %d m", t_min, d_min, r_heath // 2 * CELL)
+    log.info("tuned on west half: dash density per %s, tufts ≥ %d per 75 m window, dash density ≥ %.3f, "
+             "heath-in-moor distance %d m, Torfstich ≥ %d chains → Moor within %d m",
+             dash_mode, t_min, d_min, r_heath // 2 * CELL, torf_min, torf_near // 2 * CELL + CELL // 2)
+    print(pd.DataFrame(mode_rows).to_string(index=False))
     cfg.YOLO_RULES.write_text(json.dumps({"t_min": int(t_min), "d_min": float(d_min),
-                                          "r_heath": int(r_heath), "tuned_on": "west half of the block"},
+                                          "r_heath": int(r_heath), "torf_min": int(torf_min),
+                                          "torf_near": int(torf_near), "dash_mode": dash_mode,
+                                          "tuned_on": "west half of the block"},
                                          indent=2), encoding="utf-8")
 
     rows = []
@@ -384,9 +487,15 @@ def main() -> None:
         f"{int((det.cls == 'torfstich').sum())} Torfstich (from 06b)",
         f"- dash components (flat, {DASH['min_w']}–{DASH['max_w']} m): {n_dash:,}",
         f"- grid {CELL} m, dash window {DASH['window'] * CELL} m, tuft window 75 m",
+        f"- dash density per **{dash_mode}** (chosen on the west half; if both methods are within "
+        f"{DASH['tie']} κ there, '{DASH['prefer']}' is used – rule set before the blind check; per field = "
+        "inside the areas enclosed by the map's own field lines)", "",
+        pd.DataFrame(mode_rows).to_markdown(index=False), "",
         f"- tuned on the west half: **tufts ≥ {t_min}** per 75 m window, "
         f"**dash density ≥ {d_min:.3f}**, heath within **{r_heath // 2 * CELL} m** of recurring "
-        "Torfstich (or joined to a larger Moor) → Moor", "",
+        "Torfstich (or joined to a larger Moor) → Moor; "
+        f"**recurring Torfstich = ≥ {torf_min} chains per 275 m**, Moor within "
+        f"**{torf_near // 2 * CELL + CELL // 2} m**", "",
         pd.DataFrame(rows).to_markdown(index=False), "",
         "Kappa: agreement beyond chance (0 = chance, 1 = perfect). The east half was "
         "not used for tuning – its value is the honest one.", "",

@@ -3,6 +3,10 @@
 
   1. mosaic the 1 m tiles from step 01 and resample to HYDRO["resample_m"]
      (GDAL; "min" by default, so narrow ditches survive the coarser grid)
+  1b. stream burning (HYDRO["burn"]): lower the DEM by HYDRO["burn_depth_m"]
+     along the official water-body network (INPUTS["water_network"]). In flat
+     fen land many ditches are narrower than a cell or run through culverts
+     the DEM cannot see; burning makes the modelled flow follow them.
   2. GRASS r.watershed: flow direction, flow accumulation, streams and
      sub-catchments. r.watershed routes water through depressions with a
      least-cost search, so no separate "fill sinks" step is needed - which
@@ -22,6 +26,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import geopandas as gpd  # noqa: E402
+import numpy as np  # noqa: E402
+from shapely.geometry import box  # noqa: E402
 from osgeo import gdal, ogr, osr  # noqa: E402
 
 import config as cfg  # noqa: E402
@@ -101,6 +107,84 @@ def build_dem(tiles: list[Path], aoi: gpd.GeoDataFrame) -> Path:
     return dem
 
 
+def burn_dem(dem: Path, aoi: gpd.GeoDataFrame) -> tuple[Path, Path, float]:
+    """Cut the water-body network HYDRO["burn_depth_m"] into the DEM.
+
+    Returns the burned DEM and a raster of the network on the DEM grid
+    (1 = water body), which is also used for the stream comparison.
+    """
+    src_path = cfg.INPUTS["water_network"]
+    if not src_path.exists():
+        sys.exit(f"Missing {src_path} – save the water-body network from the WFS there "
+                 "(see DATA_SOURCES.md), or set HYDRO['burn'] = False in config.py.")
+    depth = H["burn_depth_m"]
+    burned = dem.with_name(dem.stem + "_burn.tif")
+    net_tif = OUT / "water_network.tif"
+    ds = gdal.Open(str(dem))
+    gt, proj, nx, ny = ds.GetGeoTransform(), ds.GetProjection(), ds.RasterXSize, ds.RasterYSize
+    x0, y1 = gt[0], gt[3]
+    bounds = box(x0, y1 + ny * gt[5], x0 + nx * gt[1], y1)
+    lines = gpd.read_file(src_path, bbox=tuple(bounds.bounds))
+    if lines.crs is None:
+        sys.exit(f"{src_path} has no CRS – set it in QGIS first.")
+    lines = lines.to_crs(cfg.TARGET_CRS)
+    lines = lines[lines.geometry.notna() & lines.geom_type.isin(["LineString", "MultiLineString"])]
+    if lines.empty:
+        sys.exit(f"No lines from {src_path.name} inside the DEM – wrong file or extent?")
+    tmp = OUT / "water_network_clip.gpkg"
+    lines[["geometry"]].to_file(tmp, layer="lines", driver="GPKG")
+
+    mem = gdal.GetDriverByName("MEM").Create("", nx, ny, 1, gdal.GDT_Byte)
+    mem.SetGeoTransform(gt)
+    mem.SetProjection(proj)
+    vec = ogr.Open(str(tmp))                   # keep a reference while rasterising
+    opts = ["ALL_TOUCHED=TRUE"] if H.get("burn_all_touched", True) else []
+    gdal.RasterizeLayer(mem, [1], vec.GetLayer(0), burn_values=[1], options=opts)
+    vec = None
+    net = mem.GetRasterBand(1).ReadAsArray().astype(bool)
+    gdal.GetDriverByName("GTiff").CreateCopy(str(net_tif), mem, options=["COMPRESS=DEFLATE"])
+    mem = None
+
+    band = ds.GetRasterBand(1)
+    z = band.ReadAsArray().astype("float32")
+    nodata = band.GetNoDataValue()
+    valid = z != nodata if nodata is not None else np.ones_like(net)
+    z[net & valid] -= depth
+    out = gdal.GetDriverByName("GTiff").Create(
+        str(burned), nx, ny, 1, gdal.GDT_Float32,
+        options=["COMPRESS=DEFLATE", "PREDICTOR=3", "TILED=YES"])
+    out.SetGeoTransform(gt)
+    out.SetProjection(proj)
+    ob = out.GetRasterBand(1)
+    if nodata is not None:
+        ob.SetNoDataValue(nodata)
+    ob.WriteArray(z)
+    out = ds = None
+    km = lines.length.sum() / 1000
+    log.info("burned %.0f km of water bodies (%d cells) %.1f m into the DEM",
+             km, int((net & valid).sum()), depth)
+    return burned, net_tif, km
+
+
+def stream_agreement(stream_tif: Path, net_tif: Path, tol_cells: int = 2) -> float | None:
+    """Share of official water-body cells within tol_cells of a modelled stream."""
+    if not stream_tif.exists() or not net_tif.exists():
+        return None
+    from scipy.ndimage import binary_dilation
+    s_ds, n_ds = gdal.Open(str(stream_tif)), gdal.Open(str(net_tif))   # keep references
+    sb = s_ds.GetRasterBand(1)
+    s, s_nd = sb.ReadAsArray(), sb.GetNoDataValue()
+    n = n_ds.GetRasterBand(1).ReadAsArray().astype(bool)
+    s_ds = n_ds = sb = None
+    if s.shape != n.shape:
+        return None
+    is_stream = s > 0
+    if s_nd is not None:                       # GRASS writes "no stream" as nodata
+        is_stream &= s != s_nd
+    near = binary_dilation(is_stream, iterations=tol_cells)
+    return float((near & n).sum() / max(n.sum(), 1))
+
+
 def polygonize(raster: Path, out_gpkg: Path) -> gpd.GeoDataFrame:
     src = gdal.Open(str(raster))
     band = src.GetRasterBand(1)
@@ -127,6 +211,10 @@ def main() -> None:
     aoi = load_aoi()
 
     dem = build_dem(tiles, aoi)
+    burn = bool(H.get("burn"))
+    net_tif, burn_km = None, 0.0
+    if burn:
+        dem, net_tif, burn_km = burn_dem(dem, aoi)
     res = H["resample_m"]
     threshold = int(H["basin_threshold_ha"] * 10_000 / res**2)
 
@@ -136,6 +224,9 @@ def main() -> None:
              H["basin_threshold_ha"])
     # file names carry the resampling method, so runs can be compared in QGIS
     tag = H.get("resample_alg", "average")
+    base_tag = tag
+    if burn:
+        tag += "_burn"
     outs = {k: str(OUT / f"{k}_{tag}.tif") for k in ("accumulation", "drainage", "basin", "stream")}
     run_alg(qp, alg, {
         "elevation": str(dem),
@@ -161,11 +252,34 @@ def main() -> None:
     dem_ds = gdal.Open(str(dem))
     g, nx, ny = dem_ds.GetGeoTransform(), dem_ds.RasterXSize, dem_ds.RasterYSize
     dem_ds = None
-    from shapely.geometry import box  # local import keeps the header short
     inner = box(g[0], g[3] + ny * g[5], g[0] + nx * g[1], g[3]).buffer(-2 * res)
     edge = aoi.union_all().boundary.buffer(2 * res).union(inner.exterior.buffer(2 * res))
     basins["complete"] = (~basins.intersects(edge)).astype(int)
     write_layer(basins, "subbasins")
+
+    # before/after comparison with the run without burning (if it exists)
+    cmp_lines = []
+    if burn:
+        old_raw = OUT / f"basins_raw_{base_tag}.gpkg"
+        agree_new = stream_agreement(Path(outs["stream"]), net_tif)
+        agree_old = stream_agreement(OUT / f"stream_{base_tag}.tif", net_tif)
+        cmp_lines = ["", "### Stream burning",
+                     f"- water-body network: `{cfg.INPUTS['water_network'].name}`, "
+                     f"{burn_km:,.0f} km of lines inside the DEM, burned "
+                     f"{H['burn_depth_m']:g} m deep",
+                     "- official water bodies within 10 m of a modelled stream: "
+                     + (f"{agree_old:.0%} without burning → " if agree_old is not None else "")
+                     + (f"**{agree_new:.0%}** with burning" if agree_new is not None else "n/a"),
+                     "  (modelled streams only start above the sub-catchment threshold, so",
+                     "  small ditches stay below 100 % – what matters is the change)"]
+        if old_raw.exists():
+            old = gpd.read_file(old_raw)
+            old = old[old.basin_id > 0].dissolve(by="basin_id", as_index=False)
+            old = old[old.intersects(aoi.union_all())]
+            cmp_lines.append(f"- sub-catchments reaching into the AOI: {len(old)} without "
+                             f"burning → {len(basins)} with burning")
+        cmp_lines.append(f"- compare `stream_{base_tag}.tif` and `stream_{tag}.tif` in QGIS "
+                         "with the water-body network")
 
     dom = basins[(basins.peat_share >= 0.5) & (basins.complete == 1)]
     n_edge = int((basins.complete == 0).sum())
@@ -179,7 +293,8 @@ def main() -> None:
         f"- touching the AOI/DEM edge (field `complete` = 0, incomplete – water "
         f"from outside missing): {n_edge}",
         f"- complete sub-catchments ≥ 50 % organic soil: **{len(dom)}** "
-        f"({dom.area_ha.sum():,.0f} ha, {dom.peat_ha.sum():,.0f} ha of it peat)", "",
+        f"({dom.area_ha.sum():,.0f} ha, {dom.peat_ha.sum():,.0f} ha of it peat)",
+        *cmp_lines, "",
         "The AOI is a hand-drawn test polygon, not a real catchment: the Treene,",
         "Sorge and Eider drain much larger areas. Interpret only complete",
         "sub-catchments.", "",
@@ -187,8 +302,12 @@ def main() -> None:
         f"`data/interim/hydro/{cfg.aoi_label()}/` – load them in QGIS to check.", "",
         "Limitations: the DEM does not show pipe drains, culverts or pumping",
         "stations, which control water in fen landscapes; drainage there is",
-        "largely artificial. Compare the streams with the official water-body",
-        "network before interpreting. Tiles from different survey years can",
+        "largely artificial. "
+        + ("Burning the official water-body network corrects the main ditches "
+           "and culverted streams, but not pipe drains or pumps. " if burn else
+           "Compare the streams with the official water-body network before "
+           "interpreting. ")
+        + "Tiles from different survey years can",
         "create small steps at tile edges (see report 01).",
     ])
     log.info("done: %d sub-catchments, %d peat-dominated", len(basins), len(dom))
