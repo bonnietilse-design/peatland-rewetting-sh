@@ -1,22 +1,22 @@
 # 06y_labels_to_yolo – YOLO dataset from QGIS labels
 
-_Run: 2026-10-26 13:33 · TEST MODE (test_catchment)_
+_Run: 2026-10-27 11:15 · TEST MODE (test_catchment)_
 
-- labelled tiles: **32** (320 m → 640 px)
-- objects: 399 tufts (boxes 16 m), 23 Torfstich chains
-- tuft points outside the labelled tiles (ignored): 1
+- labelled tiles: **42** (320 m → 640 px), of which 10 from the whole test area (training only)
+- objects: 580 tufts (boxes 16 m), 59 Torfstich chains
+- tuft points outside the labelled tiles (ignored): 3
 
 Split (edge-neighbouring tiles kept together, stratified by content, seed 42):
 
 | split   |   tiles |   empty |   tufts |   torfstich |
 |:--------|--------:|--------:|--------:|------------:|
-| train   |      24 |       7 |     288 |          17 |
+| train   |      34 |       7 |     469 |          53 |
 | val     |       4 |       1 |      58 |           2 |
 | test    |       4 |       1 |      53 |           4 |
 
 | split | tiles |
 |---|---|
-| train | r01_c03, r03_c02, r03_c05, r05_c06, r05_c11, r05_c18, r06_c09, r06_c16, r07_c03, r07_c09, r07_c14, r08_c05, r08_c10, r08_c14, r08_c17, r10_c01, r14_c02, r14_c08, r14_c12, r15_c06, r15_c09, r16_c08, r16_c10, r18_c00 |
+| train | aoi_r21_c21, aoi_r25_c57, aoi_r37_c10, aoi_r39_c71, aoi_r50_c74, aoi_r53_c32, aoi_r54_c64, aoi_r59_c57, aoi_r69_c60, aoi_r70_c52, r01_c03, r03_c02, r03_c05, r05_c06, r05_c11, r05_c18, r06_c09, r06_c16, r07_c03, r07_c09, r07_c14, r08_c05, r08_c10, r08_c14, r08_c17, r10_c01, r14_c02, r14_c08, r14_c12, r15_c06, r15_c09, r16_c08, r16_c10, r18_c00 |
 | val | r06_c00, r11_c05, r15_c14, r17_c07 |
 | test | r03_c08, r06_c13, r07_c12, r09_c18 |
 

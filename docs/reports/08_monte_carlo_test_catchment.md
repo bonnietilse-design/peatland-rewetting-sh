@@ -1,6 +1,6 @@
 # 08_monte_carlo – Uncertainty of the emission estimate
 
-_Run: 2026-10-23 11:40 · TEST MODE (test_catchment)_
+_Run: 2026-10-27 10:26 · TEST MODE (test_catchment)_
 
 - runs: 10,000, seed 42, distribution: **skewed**
 - deterministic estimate (area × mean factor): 354,350 t CO2-eq/yr
