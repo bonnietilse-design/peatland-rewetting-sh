@@ -50,6 +50,9 @@ INPUTS = {
     "historical_peat": DATA_RAW / "historical" / "peat_1880_digitised.gpkg",
     # Area that was actually checked on the 1880 map (step 06 compares only here)
     "historical_extent": DATA_RAW / "historical" / "digitised_extent.gpkg",
+    # Official water-body network (ATKIS Basis-DLM, INSPIRE Hydro - Netzwerk,
+    # LVermGeo SH, CC BY 4.0), lines saved from the WFS for the AOI - step 05
+    "water_network": DATA_RAW / "water" / "water_network.gpkg",
     # Protected areas (FFH, NSG) - LfU SH, check licence before publishing
     "protected_areas": DATA_RAW / "protected" / "TODO_filename.gpkg",
 }
@@ -164,7 +167,7 @@ for _k, _p in _PAPER.items():
 #         rewetted 5.5 [-1.8–11.7]  t CO2-eq/ha/yr
 
 # ---------------------------------------------------------------------------
-# Hydrology (WhiteboxTools)
+# Hydrology (GRASS r.watershed)
 # ---------------------------------------------------------------------------
 HYDRO = {  # step 05, GRASS r.watershed run through qgis_process
     "resample_m": 5,              # 1 m is huge; 5 m is a sensible working res
@@ -174,6 +177,12 @@ HYDRO = {  # step 05, GRASS r.watershed run through qgis_process
     "basin_threshold_ha": 50,     # min. sub-catchment size (-> cells at resample_m)
     "single_flow": True,          # True = D8 (one downslope neighbour, -s flag)
     "memory_mb": 4000,            # RAM r.watershed may use
+    # Stream burning: lower the DEM along the official water-body network
+    # (INPUTS["water_network"]), so ditches and culverted streams that the
+    # DEM does not show still guide the flow. False = DEM as it is.
+    "burn": True,
+    "burn_depth_m": 3.0,          # how deep the network is cut into the DEM
+    "burn_all_touched": True,     # every 5 m cell a line touches is burned
     # qgis_process command; None = search the usual names in the OSGeo4W shell
     "qgis_process": None,
 }

@@ -7,6 +7,7 @@
 | DGM1 (1 m terrain model) | LVermGeo SH, OpenGBD portal | CC BY 4.0 | © GeoBasis-DE/LVermGeo SH/CC-BY 4.0 | `data/raw/dgm1/` |
 | Preußische Landesaufnahme (Chronologen), WMS `https://dienste.gdi-sh.de/WMS_SH_FD_Chronologen`, layer `Chronologen_1_1878-1880` | LVermGeo SH (Darstellungsdienst, kostenfrei) | CC BY 4.0 | © GeoBasis-DE/LVermGeo SH/CC BY 4.0 | digitised peat extent in `data/raw/historical/` |
 | Legend for digitising: "Zeichen-Erklärung für die Messtischblätter 1:25 000" (Kgl. Preuß. Landesaufnahme, 1898; reprint 1988, LVermA NRW), [PDF](https://www.bezreg-koeln.nrw.de/system/files/media/document/file/geobasis_tk_hist_zeichenerklaerung_1891_neuaufnahme.pdf) | Geobasis NRW (Bezirksregierung Köln) | free of charge; dl-de/zero-2.0 recommended by provider | Geobasis NRW | used for the classes in `docs/digitising_legend.png` |
+| Water-body network: ATKIS Basis-DLM, INSPIRE Hydro – Netzwerk (WFS download service of LVermGeo SH), lines saved for the test area as `water_network.gpkg` (EPSG:25832) – used for stream burning in step 05 | LVermGeo SH / GDI-SH | CC BY 4.0 | © GeoBasis-DE/LVermGeo SH/CC BY 4.0 | `data/raw/water/` |
 | VG250 administrative boundaries | BKG | dl-de/by-2.0 | © GeoBasis-DE / BKG (year) | `data/raw/vg250/` |
 | Protected areas (FFH, NSG) | LfU SH | TODO – check | TODO | `data/raw/protected/` |
 

@@ -17,9 +17,10 @@ According to the Land Schleswig-Holstein (Moor-Klimaschutz, Jan 2024), carbon-ri
 | How much farmland lies on organic soil? | **11,102 ha** – 10,824 ha grassland, 278 ha cropland | 03 |
 | How much does it emit? | **≈ 354,000 t CO2-eq/yr** (estimate); ≈ 293,000 t/yr could be saved by rewetting all of it | 04 |
 | How uncertain is that? | 90 % range 351,000–358,000 t if field-level errors cancel out, 144,000–487,000 t if the whole area deviates from the German average – the truth lies in between | 08 |
-| Where should rewetting start? | To save 75,000 t/yr: choosing **82 whole sub-catchments** wets only **52 ha** of farmland on mineral soil – choosing the best **parcels** instead touches 119–230 catchments and wets **4,300–6,600 ha** of mineral-soil farmland as a side effect | 05, 07 |
-| Can the 1880 map be read automatically? | A small **YOLO26** model, trained on my own computer with 32 hand-labelled tiles (400 tufts, 25 peat cuttings), plus rule-based dash detection reproduces my hand digitising on **90 %** of the area it was not tuned on (κ = 0.86) – and reaches **90 % ± 6 %** accuracy in a blind 100-point check across the rest of the test area | 06x–06v |
-| How has the wet land changed since 1880? | Hand-digitised block (36 km²): **92 %** of the land shown as wet on the 1878–80 map is still organic soil today. Whole test area (304 km², automated): **88 %** (10,020 of 11,385 ha). 1880 *Moor* ≈ today's raised bog; a fifth to a third of the 1880 wet meadows are now **Moorfolgeboden** (peat largely lost); about 5,900 ha of today's fen were already drained pasture or dry meadow in 1880 | 06 |
+| Where should rewetting start? | To save 75,000 t/yr: choosing **78 whole sub-catchments** wets only **44 ha** of farmland on mineral soil – choosing the best **parcels** instead touches 121–220 catchments and wets **4,500–7,200 ha** of mineral-soil farmland as a side effect | 05, 07 |
+| Can the 1880 map be read automatically? | A small **YOLO26** model, trained on my own computer with hand-labelled tiles, plus rule-based dash detection reproduces my hand digitising on **91 %** of the area it was not tuned on (κ = 0.86) – and reaches **91 % ± 6 %** accuracy in a blind 100-point check across the rest of the test area | 06x–06v |
+| How has the wet land changed since 1880? | Hand-digitised block (36 km²): **92 %** of the land shown as wet on the 1878–80 map is still organic soil today. Whole test area (304 km², automated): **89 %** (10,150 of 11,409 ha). 1880 *Moor* ≈ today's raised bog; a fifth to a third of the 1880 wet meadows are now **Moorfolgeboden** (peat largely lost); about 5,800 ha of today's fen were already drained pasture or dry meadow in 1880 | 06 |
+| Were the chosen sub-catchments wet in 1880? | Yes: **65 %** of the area of the 78 chosen sub-catchments was wet on the 1878–80 map, against 38 % of the other candidates – although step 07 knew nothing about 1880. Preferring land that was wet in 1880 raises that share of the rewetted farmed peat from 63 % to 82 %, at the cost of ~80 ha more mineral-soil farmland | 07b |
 
 ![Wet land 1878–80 vs. organic soils today, whole test area](outputs/06_historical_yolo_test_catchment.png)
 
@@ -32,13 +33,16 @@ According to the Land Schleswig-Holstein (Moor-Klimaschutz, Jan 2024), carbon-ri
 | 02 | `02_prepare_inputs.py` | Reproject, repair, clip to AOI → one GeoPackage | GeoPandas |
 | 03 | `03_overlay_soils_landuse.py` | Organic soils × arable/grassland (Feldblöcke 2026), per municipality | GeoPandas |
 | 04 | `04_emission_estimate.py` | Area × implied emission factors (Tiemeyer et al. 2020) | pandas |
-| 05 | `05_hydrology.py` | DEM at 5 m (min), flow accumulation, streams, 367 sub-catchments | GRASS `r.watershed` via `qgis_process` |
+| 05 | `05_hydrology.py` | DEM at 5 m (min), official water-body network burned 3 m deep (stream burning), flow accumulation, streams, 350 sub-catchments | GDAL, GRASS `r.watershed` via `qgis_process` |
 | 06 | `06_historical_loss.py` | Wet signatures from the Preußische Landesaufnahme 1878–80 vs. today's soil map – hand-digitised block, or the automated layer for the whole test area (`yolo`) | QGIS, GeoPandas, Shapely |
 | 07 | `07_optimisation.py` | Minimum area for a CO2 target: parcel ranking, parcel optimum, catchment optimum | SciPy `milp` / HiGHS (binary integer programming) |
+| 07b | `07b_history_per_catchment.py` | The 1880 map per sub-catchment: wet share, Moorfolgeboden, chosen vs. other catchments, sensitivity run of 07 that prefers land wet in 1880 | GeoPandas, SciPy `milp` |
 | 08 | `08_monte_carlo.py` | 10,000 runs, skewed (two-piece normal) emission factors, two correlation scenarios | NumPy, SciPy |
 | 09 | `09_export_maps_pyqgis.py` | Atlas: one A4 page per municipality with ≥ 50 ha farmed peat (24 pages) – [web version](docs/atlas_gemeinden_web.pdf) | PyQGIS |
 
-Each step writes a short report to [`docs/reports/`](docs/reports/). A 32-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
+**Stream burning (step 05).** In flat fen land many ditches are narrower than a 5 m cell or run through culverts, so a flow model on the bare DEM draws streams beside the real watercourses. I lower the DEM by 3 m along the official water-body network (ATKIS Basis-DLM, 1,885 km of lines in the test area, many of them field ditches) before running `r.watershed`. The modelled streams now follow the rivers and ditches; the number of sub-catchments drops from 367 to 350, and the CO2 target in step 07 is reached with 78 instead of 82 of them. Wide rivers are burned only along their centre line, so a second, parallel stream can remain inside the river bed.
+
+Each step writes a short report to [`docs/reports/`](docs/reports/). A 37-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
 
 ### Historical map (step 06)
 
@@ -76,7 +80,7 @@ Hand digitising doesn't scale beyond a few sheets, so I tested whether the same 
 | Area | Agreement with hand digitising | κ |
 |---|---:|---:|
 | west half (used for tuning) | 84 % | 0.74 |
-| **east half (not used)** | **90 %** | **0.86** |
+| **east half (not used)** | **91 %** | **0.86** |
 
 ![Hand digitising vs. YOLO + rules](outputs/06c_yolo_vs_hand_test_catchment.png)
 
@@ -84,7 +88,7 @@ On the east half, Moor is reproduced with an IoU of 0.91 and nasse Wiese with 0.
 
 ### Applying it to the whole test area
 
-The same model and the thresholds tuned on the block (no re-tuning) were applied to the whole test area: 3,119 tiles, 11,943 tufts and 771 peat cuttings detected, about 20 minutes on a laptop CPU. Inside the block the result still agrees with my hand digitising on 87 % (κ 0.81).
+The same model and the thresholds tuned on the block (no re-tuning) were applied to the whole test area: 3,119 tiles, about 20 minutes on a laptop CPU. Inside the block the result still agrees with my hand digitising on 87 % (κ 0.81). The final layer uses the tufts of the first model and the peat cuttings of the second (11,943 tufts, 1,129 peat cuttings – see *Second training round* below).
 
 ![1880 classes for the whole test area](outputs/06c_yolo_aoi_test_catchment.png)
 
@@ -94,13 +98,26 @@ Twelve spot-check tiles outside the block showed no false detections on letterin
 
 | Class | Mapped ha | User's accuracy | Producer's accuracy | Estimated ha (± 95 %) |
 |---|---:|---:|---:|---:|
-| Moor | 3,478 | 0.92 | 0.86 | 3,714 ± 726 |
-| nasse Wiese | 5,665 | **0.72** | 0.86 | 4,754 ± 1,668 |
-| Heide | 752 | 0.84 | 0.69 | 910 ± 393 |
-| none | 16,862 | 0.96 | 0.93 | 17,381 ± 1,605 |
-| **Overall accuracy** | | **90 % ± 6 %** | | |
+| Moor | 3,600 | 0.90 | 0.93 | 3,714 ± 726 |
+| nasse Wiese | 5,581 | **0.78** | 0.86 | 4,754 ± 1,668 |
+| Heide | 813 | 0.89 | 0.81 | 910 ± 393 |
+| none | 16,764 | 0.96 | 0.93 | 17,381 ± 1,605 |
+| **Overall accuracy** | | **91 % ± 6 %** | | |
 
-Moor is reliable; nasse Wiese is over-mapped by roughly 900 ha (mostly dense pasture rows and dry meadow), so the "lost" area of the whole-area comparison (1,365 ha) is an upper bound.
+Moor is reliable; nasse Wiese is over-mapped by roughly 800 ha (mostly dense pasture rows and dry meadow), so the "lost" area of the whole-area comparison (1,259 ha) is an upper bound.
+
+### Second training round
+
+The spot checks showed three weak points: peat cuttings drawn diagonally or horizontally, large fan-shaped tufts, and nasse Wiese spreading into pasture rows. I labelled 10 more tiles outside the block that cover the first two (181 tufts, 36 peat cuttings), chosen away from the 100 check points so that the blind check stays independent. They were added to training only; validation and test tiles stayed the same. The model was retrained with moderate rotation (±30°, no vertical flip – tufts are always drawn upright). The pasture rows are a problem of the dash rule, not of the model, so more labels cannot fix them.
+
+| Blind check, 100 points | Round 1 | Round 2 | Round 1 tufts + round 2 peat cuttings |
+|---|---:|---:|---:|
+| Overall accuracy | 90 % ± 6 % | 90 % ± 6 % | **91 % ± 6 %** |
+| Moor, user's / producer's acc. | 0.92 / 0.86 | 0.84 / 0.89 | 0.90 / 0.93 |
+| Heide, user's / producer's acc. | 0.84 / 0.69 | 0.92 / 0.78 | 0.89 / 0.81 |
+| Block, east half (κ) | 0.86 | 0.86 | 0.86 |
+
+What happened: the second model finds peat cuttings much better (all 6 on the validation and test tiles, 46 % more on the whole area), but its tuft confidences cluster around 0.15–0.25, so the result swings with the threshold – at 0.15 it also "finds" tufts in dashed meadows, and tufts + dashes become false Moor. Training longer did not change that. A stricter peat-cutting rule (now tuned on the block: ≥ 3 cuttings per 275 m instead of 2) hardly changed anything, which showed that the false Moor came from the tufts, not the peat cuttings. Taking each symbol from the model that is reliable for it gives the best map. The gain is within the confidence interval, and the combination is the third variant checked against the same 100 points, so I read it as "slightly better, not significantly better". Comparing a new map with a sample drawn from an older one uses the estimator for strata that differ from the map classes (Stehman 2014; `06v_accuracy_check.py compare`).
 
 ## Repository structure
 
@@ -130,6 +147,7 @@ python scripts\04_emission_estimate.py
 python scripts\05_hydrology.py        :: needs: qgis_process-qgis-ltr plugins enable grassprovider
 python scripts\06_historical_loss.py  :: needs the hand-digitised layer in data\raw\historical\
 python scripts\07_optimisation.py
+python scripts\07b_history_per_catchment.py  :: after 06 yolo
 python scripts\08_monte_carlo.py
 ```
 
@@ -149,6 +167,11 @@ python scripts\06c_detections_to_polygons.py aoi
 python scripts\06_historical_loss.py yolo
 python scripts\06v_accuracy_check.py make   :: then fill "ref" in QGIS
 python scripts\06v_accuracy_check.py eval
+:: second round: label more tiles in tiles_aoi.gpkg (use = 'label'), then
+python scripts\06y_labels_to_yolo.py
+yolo detect train data=dataset/data.yaml model=yolo26n.pt imgsz=640 epochs=150 patience=40 batch=8 device=cpu workers=2 scale=0.2 degrees=30 flipud=0 project=runs name=train3
+python scripts\06b_predict.py aoi data\interim\yolo\runs\detect\runs\train3\weights\best.pt 0.15/0.20
+python scripts\06v_accuracy_check.py compare data\interim\yolo\round1\yolo_classes_aoi.tif
 ``` Alternatively, `environment.yml` describes an equivalent conda environment. Data downloads are listed in [DATA_SOURCES.md](DATA_SOURCES.md).
 
 ## Limitations
@@ -157,7 +180,8 @@ python scripts\06v_accuracy_check.py eval
 - The DEM does not show pipe drains, culverts or pumping stations, which control water in fen landscapes; the test area is a hand-drawn polygon, not a real catchment, so only complete sub-catchments are used.
 - The historical comparison sets map *signatures* against a *soil* map – different concepts. Hand digitising, the positional accuracy of the 1880 survey and a legend ~20 years younger than the sheets add uncertainty; about a third of the "lost" area lies within 25 m of a boundary.
 - DGM1 tiles come from survey years 2005–2025; drained peat subsides, so tile edges can show small steps.
-- The YOLO model was trained on 32 tiles from one 36 km² block. Across the whole test area it reaches 90 % ± 6 % accuracy (100 blind points), but nasse Wiese is over-mapped (user's accuracy 0.72), peat cuttings at steep angles are often missed, and moor names are not read. Land around peat cuttings is mapped as ~125 m squares rather than whole fields.
+- The YOLO models were trained on 42 tiles, 32 of them from one 36 km² block. Across the whole test area the map reaches 91 % ± 6 % accuracy (100 blind points), but nasse Wiese is over-mapped (user's accuracy 0.78), the second model's tuft confidences are unstable, and moor names are not read. Land around peat cuttings is mapped as squares rather than whole fields. The rules were tuned on one block; other parts of the state (marsh, raised bogs, eastern hills) would need their own checks.
+- Stream burning uses the centre lines of the water-body network; wide rivers and pipe drains are not represented.
 
 ## Data and licences
 
