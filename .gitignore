@@ -1,0 +1,28 @@
+# data never goes into git (too big, licences) – keep folder structure only
+data/raw/**
+data/interim/**
+data/processed/**
+!data/**/.gitkeep
+
+# large generated outputs (re-created by the scripts; GitHub limit is 100 MB/file)
+outputs/maps/*.pdf
+# ...except the compressed web version of the atlas (JPEG pages, ~7 MB)
+!outputs/maps/atlas_gemeinden_web.pdf
+outputs/*.gpkg
+*.aux.xml
+
+# QGIS temp files
+*.qgs~
+*.qgz~
+*_attachments.zip
+.qgis*/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
