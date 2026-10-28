@@ -276,6 +276,11 @@ YOLO = {
     "min_inside": 0.5,        # keep a Torfstich box if >= 50 % of it lies in the tile
     "split": {"train": 0.70, "val": 0.15, "test": 0.15},
     "seed": 42,
+    # Tile source. "1m": the 1 m exports, enlarged ×2 with nearest neighbour
+    # (rounds 1-3). "native": the WCS at its own resolution (~0.78 m), resampled
+    # to 0.5 m bilinearly and thresholded - keeps the thin strokes of the tufts.
+    # Native tiles go to <tile_dir>_native; tile ids and 'use' flags stay the same.
+    "tile_variant": "native",
 }
 
 # Two areas for the YOLO workflow. "block" = the 36 km² hand-digitised block
@@ -289,6 +294,8 @@ YOLO_AREAS = {
         "tile_index": YOLO["tile_index"],
         "detections": DATA_INTERIM / "yolo" / "detections.csv",
         "suffix": "",                  # layer/report names as before
+        "native_tif": DATA_RAW / "historical" / "chronologen_1880_block_native.tif",
+        "extent": (524000, 6019900, 530100, 6026000),     # xmin, ymin, xmax, ymax (06w)
     },
     "aoi": {
         "map_tif": DATA_RAW / "historical" / "chronologen_1880_aoi.tif",
@@ -296,8 +303,41 @@ YOLO_AREAS = {
         "tile_index": DATA_INTERIM / "yolo" / "tiles_aoi.gpkg",
         "detections": DATA_INTERIM / "yolo" / "detections_aoi.csv",
         "suffix": "_aoi",
+        "native_tif": DATA_RAW / "historical" / "chronologen_1880_aoi_native.tif",
+        "extent": (510000, 6010700, 537200, 6037000),
+    },
+    # test sheet outside the test area (Fiel / Meldorfer Moor, Dithmarschen):
+    # dense dry-meadow dot pairs that the first model takes for tufts
+    "fiel": {
+        "map_tif": DATA_RAW / "historical" / "chronologen_1880_fiel.tif",
+        "tile_dir": DATA_INTERIM / "yolo" / "tiles_fiel",
+        "tile_index": DATA_INTERIM / "yolo" / "tiles_fiel.gpkg",
+        "detections": DATA_INTERIM / "yolo" / "detections_fiel.csv",
+        "suffix": "_fiel",
+        "native_tif": DATA_RAW / "historical" / "chronologen_1880_fiel_native.tif",
+        "extent": (504363, 5995200, 514700, 6001934),
+    },
+    # further training sheets (native resolution only)
+    "dosenmoor": {
+        "map_tif": DATA_RAW / "historical" / "chronologen_1880_dosenmoor.tif",
+        "native_tif": DATA_RAW / "historical" / "chronologen_1880_dosenmoor.tif",
+        "extent": (564500, 5995500, 569500, 6000500),
+        "tile_dir": DATA_INTERIM / "yolo" / "tiles_dosenmoor",
+        "tile_index": DATA_INTERIM / "yolo" / "tiles_dosenmoor.gpkg",
+        "detections": DATA_INTERIM / "yolo" / "detections_dosenmoor.csv",
+        "suffix": "_dosenmoor",
     },
 }
+
+
+def tile_dir(A: dict) -> Path:
+    """Folder with the tile images of an area for the current tile variant."""
+    if YOLO.get("tile_variant") == "native":
+        return A["tile_dir"].with_name(A["tile_dir"].name + "_native")
+    return A["tile_dir"]
+# Chronologen WCS (LVermGeo SH) - script 06w downloads native-resolution GeoTIFFs
+WCS = {"url": "https://dienste.gdi-sh.de/WCS_SH_FD_Chronologen",
+       "coverage": "Chronologen_1_1878-1880"}
 YOLO_RULES = DATA_INTERIM / "yolo" / "rule_parameters.json"   # written by 06c on the block
 
 

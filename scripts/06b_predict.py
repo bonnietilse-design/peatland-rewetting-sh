@@ -85,9 +85,9 @@ def main() -> None:
     parts = [float(v) for v in conf_arg.split("/")]
     conf_cls = {name: parts[min(i, len(parts) - 1)] for i, name in NAMES.items()}
     conf = min(conf_cls.values())
-    tiles = sorted(A["tile_dir"].glob("*.png"))
+    tiles = sorted(cfg.tile_dir(A).glob("*.png"))
     if not tiles:
-        sys.exit(f"No tiles in {A['tile_dir']} – run 06x {area} first.")
+        sys.exit(f"No tiles in {cfg.tile_dir(A)} – run 06x {area} first.")
     spot = set()
     if area == "aoi":
         import random

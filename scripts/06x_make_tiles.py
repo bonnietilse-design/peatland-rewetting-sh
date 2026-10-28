@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import numpy as np  # noqa: E402
 from osgeo import gdal, ogr, osr  # noqa: E402
 
 import config as cfg  # noqa: E402
@@ -41,17 +42,125 @@ def aoi_geometry():
     return geom
 
 
+def read_index(idx_path):
+    """Existing tile footprints: tile_id, row, col, use, bounds."""
+    ds = ogr.Open(str(idx_path))
+    out = []
+    for f in ds.GetLayer(0):
+        mnx, mxx, mny, mxy = f.GetGeometryRef().GetEnvelope()
+        out.append({"tile_id": f.GetField("tile_id"), "row": f.GetField("row"),
+                    "col": f.GetField("col"), "use": f.GetField("use"),
+                    "x0": mnx, "y1": mxy})
+    return out
+
+
+def make_native(area, A) -> None:
+    """Tiles from the WCS at its native resolution (~0.78 m), resampled to
+    0.5 m bilinearly and thresholded at half - thin strokes survive, while
+    nearest neighbour from a 1 m export drops whole pixel rows.
+    If the area already has a tile index, the same footprints (and tile ids,
+    'use' flags) are rendered again, so all labels and flags stay valid."""
+    src_path = A.get("native_tif")
+    if src_path is None or not src_path.exists():
+        sys.exit(f"Missing {src_path} – export the WCS for the {area} at its native resolution "
+                 "('Layer Resolution' in the export dialog).")
+    src = gdal.Open(str(src_path))
+    gt = src.GetGeoTransform()
+    W, H = src.RasterXSize, src.RasterYSize
+    sample = src.GetRasterBand(1).ReadAsArray(W // 4, H // 4, min(2000, W // 2), min(2000, H // 2))
+    if len(np.unique(sample)) < 2:
+        sys.exit(f"{src_path.name} looks empty (only the value {sample.flat[0]}) – the export failed. "
+                 f"Download it with:  python scripts\\06w_download_wcs.py {area}")
+    tm, px = Y["tile_m"], Y["tile_px"]
+    idx_path = A["tile_index"]
+    if idx_path.exists():
+        tiles = read_index(idx_path)
+        log.info("%s: re-rendering %d existing tiles from %s (%.3f m)", area, len(tiles),
+                 src_path.name, gt[1])
+        new_index = False
+    else:
+        x0, y1 = float(np.floor(gt[0])), float(np.ceil(gt[3]))
+        n_c = int(np.ceil((gt[0] + W * gt[1] - x0) / tm))
+        n_r = int(np.ceil((y1 - (gt[3] + H * gt[5])) / tm))
+        fmt = "r{:02d}_c{:02d}" if n_r <= 100 and n_c <= 100 else "r{:03d}_c{:03d}"
+        tiles = [{"tile_id": fmt.format(r, c), "row": r, "col": c, "use": None,
+                  "x0": x0 + c * tm, "y1": y1 - r * tm} for r in range(n_r) for c in range(n_c)]
+        log.info("%s: new grid of %d × %d tiles from %s (%.3f m)", area, n_r, n_c, src_path.name, gt[1])
+        new_index = True
+    out_dir = cfg.tile_dir(A)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    png = gdal.GetDriverByName("PNG")
+    for i, t in enumerate(tiles, 1):
+        x0, y1 = t["x0"], t["y1"]
+        tmp = gdal.Warp("", src, format="MEM", outputBounds=(x0, y1 - tm, x0 + tm, y1),
+                        width=px, height=px, resampleAlg="bilinear", outputType=gdal.GDT_Float32,
+                        warpOptions=["INIT_DEST=1"])          # outside the map = paper
+        a = tmp.GetRasterBand(1).ReadAsArray()
+        ink = a < 0.5
+        t["ink_share"] = float(ink.mean())
+        mem = gdal.GetDriverByName("MEM").Create("", px, px, 1, gdal.GDT_Byte)
+        mem.SetGeoTransform((x0, tm / px, 0, y1, 0, -tm / px))
+        mem.SetProjection(src.GetProjection())
+        mem.GetRasterBand(1).WriteArray(np.where(ink, 0, 255).astype(np.uint8))
+        png.CreateCopy(str(out_dir / f"{t['tile_id']}.png"), mem, options=["WORLDFILE=YES"])
+        tmp = mem = None
+        if i % 250 == 0:
+            log.info("%d / %d tiles", i, len(tiles))
+    if new_index:
+        drv = ogr.GetDriverByName("GPKG")
+        ds = drv.CreateDataSource(str(idx_path))
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(25832)
+        lyr = ds.CreateLayer("tiles", srs, ogr.wkbPolygon)
+        for name, typ in (("tile_id", ogr.OFTString), ("row", ogr.OFTInteger),
+                          ("col", ogr.OFTInteger), ("use", ogr.OFTString),
+                          ("ink_share", ogr.OFTReal)):
+            lyr.CreateField(ogr.FieldDefn(name, typ))
+        for t in tiles:
+            ring = ogr.Geometry(ogr.wkbLinearRing)
+            for x, y in ((t["x0"], t["y1"] - tm), (t["x0"] + tm, t["y1"] - tm), (t["x0"] + tm, t["y1"]),
+                         (t["x0"], t["y1"]), (t["x0"], t["y1"] - tm)):
+                ring.AddPoint_2D(x, y)
+            poly = ogr.Geometry(ogr.wkbPolygon)
+            poly.AddGeometry(ring)
+            f = ogr.Feature(lyr.GetLayerDefn())
+            f.SetGeometry(poly)
+            for k in ("tile_id", "row", "col"):
+                f.SetField(k, t[k])
+            f.SetField("ink_share", round(t["ink_share"], 4))
+            lyr.CreateFeature(f)
+        ds = None
+    write_report("06x_make_tiles" + A["suffix"] + "_native", f"Native-resolution map tiles ({area})", [
+        f"- source: `{src_path.name}`, {W} × {H} px at {gt[1]:.3f} m",
+        f"- tiles: **{len(tiles)}** ({'new grid' if new_index else 'same footprints and ids as before'}), "
+        f"{tm} m → {px} px, bilinear + threshold",
+        f"- images: `{out_dir.relative_to(cfg.ROOT)}`",
+        "", "Map: Preußische Landesaufnahme 1878–80, © GeoBasis-DE/LVermGeo SH/CC BY 4.0",
+    ])
+    log.info("%d tiles written to %s", len(tiles), out_dir)
+
+
 def main() -> None:
     area, A = cfg.yolo_area(sys.argv)
+    if Y.get("tile_variant") == "native":
+        make_native(area, A)
+        return
     src_path = A["map_tif"]
     if not src_path.exists():
         sys.exit(f"Missing {src_path} – export the WCS layer for the {area} first.")
     aoi = aoi_geometry() if area == "aoi" else None
     src = gdal.Open(str(src_path))
     gt = src.GetGeoTransform()
+    if abs(gt[1] - 1) > 1e-6 or abs(gt[5] + 1) > 1e-6:
+        # e.g. a WCS export with a "map canvas" extent: pixels of 1.00004 m.
+        # Snap to an exact 1 m grid (nearest neighbour, no new values).
+        fixed = src_path.with_name(src_path.stem + "_1m.tif")
+        log.info("pixel size %.6f × %.6f m – resampling to exactly 1 m: %s", gt[1], -gt[5], fixed.name)
+        gdal.Warp(str(fixed), src, xRes=1, yRes=1, targetAlignedPixels=True, resampleAlg="near",
+                  creationOptions=["COMPRESS=DEFLATE", "TILED=YES"])
+        src = gdal.Open(str(fixed))
+        gt = src.GetGeoTransform()
     res = gt[1]
-    if abs(gt[5] + res) > 1e-6:
-        sys.exit("Expected square pixels, north-up.")
     x0, y1 = gt[0], gt[3]
     w_px, h_px = src.RasterXSize, src.RasterYSize
     step_px = round(Y["tile_m"] / res)                 # source pixels per tile

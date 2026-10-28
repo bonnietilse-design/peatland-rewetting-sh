@@ -45,22 +45,29 @@ Y = cfg.YOLO
 CLS = {name: i for i, name in enumerate(Y["classes"])}
 
 
-def labelled(index_path: Path) -> gpd.GeoDataFrame:
+def labelled(index_path: Path, uses=("label", "done")) -> gpd.GeoDataFrame:
     if not index_path.exists():
         return gpd.GeoDataFrame()
     t = gpd.read_file(index_path, layer="tiles")
-    return t[t["use"].fillna("").str.strip().str.lower().isin(["label", "done"])].copy()
+    t["use"] = t["use"].fillna("").str.strip().str.lower()
+    return t[t["use"].isin(uses)].copy()
 
 
 def read_inputs():
     tiles = labelled(Y["tile_index"])
     if tiles.empty:
         sys.exit("No tiles with use = 'label' in tiles.gpkg – save the edits in QGIS first.")
-    tiles["name"], tiles["src_dir"], tiles["extra"] = tiles.tile_id, str(Y["tile_dir"]), 0
-    extra = labelled(cfg.YOLO_AREAS["aoi"]["tile_index"])
-    if len(extra):
-        extra["name"] = "aoi_" + extra.tile_id
-        extra["src_dir"], extra["extra"] = str(cfg.YOLO_AREAS["aoi"]["tile_dir"]), 1
+    tiles["name"], tiles["src_dir"], tiles["extra"] = (tiles.tile_id,
+                                                       str(cfg.tile_dir(cfg.YOLO_AREAS["block"])), 0)
+    # other areas: use = 'label' -> training, use = 'test' -> extra test tiles
+    for area, A in cfg.YOLO_AREAS.items():
+        if area == "block":
+            continue
+        extra = labelled(A["tile_index"], ("label", "done", "test"))
+        if not len(extra):
+            continue
+        extra["name"] = f"{area}_" + extra.tile_id
+        extra["src_dir"], extra["extra"] = str(cfg.tile_dir(A)), 1
         cols = [c for c in tiles.columns if c in extra.columns]
         tiles = gpd.GeoDataFrame(pd.concat([tiles[cols], extra[cols]], ignore_index=True),
                                  crs=tiles.crs)
@@ -167,8 +174,8 @@ def main() -> None:
                         for a, b in zip(tiles.n_tuft, tiles.n_torfstich)]
     block = tiles[tiles.extra == 0]
     split = split_tiles(block)                       # same as round 1
-    tiles["split"] = [split.get(t, "train") if e == 0 else "train"
-                      for t, e in zip(tiles.tile_id, tiles.extra)]
+    tiles["split"] = [split.get(t, "train") if e == 0 else ("test" if u == "test" else "train")
+                      for t, e, u in zip(tiles.tile_id, tiles.extra, tiles["use"])]
 
     for t in tiles.itertuples():
         src = Path(t.src_dir) / f"{t.tile_id}.png"
@@ -200,7 +207,7 @@ def main() -> None:
     outside = len(tufts) - int(tiles.n_tuft.sum())
     write_report("06y_labels_to_yolo", "YOLO dataset from QGIS labels", [
         f"- labelled tiles: **{len(tiles)}** ({Y['tile_m']} m → {Y['tile_px']} px), "
-        f"of which {int(tiles.extra.sum())} from the whole test area (training only)",
+        f"of which {int(tiles.extra.sum())} from other areas (use 'label' → training, 'test' → test)",
         f"- objects: {int(tiles.n_tuft.sum())} tufts (boxes {Y['tuft_box_m']} m), "
         f"{int(tiles.n_torfstich.sum())} Torfstich chains",
         f"- tuft points outside the labelled tiles (ignored): {outside}", "",

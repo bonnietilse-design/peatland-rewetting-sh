@@ -10,6 +10,9 @@ for several confidence thresholds.
 Run in the YOLO environment (plain Command Prompt, yolo-env activated):
     python scripts\\06z_point_check.py runs\\detect\\runs\\train2\\weights\\best.pt val
 (paths relative to data\\interim\\yolo; split = val or test)
+Optional third argument: only tiles of one area, e.g.
+    python scripts\\06z_point_check.py runs\\detect\\runs\\train5\\weights\\best.pt test fiel
+    ... test block      (the hand-digitised block only)
 """
 import sys
 from pathlib import Path
@@ -19,7 +22,7 @@ from ultralytics import YOLO
 
 TILE_M, TILE_PX = 320, 640           # must match config.YOLO
 MATCH_M = 8                          # half a tuft box
-CONFS = [0.05, 0.10, 0.15, 0.20, 0.25, 0.35, 0.50]
+CONFS = [0.05, 0.08, 0.10, 0.11, 0.12, 0.13, 0.14, 0.15, 0.17, 0.20, 0.25, 0.35, 0.50]
 NAMES = {0: "tuft", 1: "torfstich"}
 
 
@@ -56,11 +59,19 @@ def main() -> None:
     img_dir = root / "dataset" / "images" / split
     lab_dir = root / "dataset" / "labels" / split
     imgs = sorted(img_dir.glob("*.png"))
+    area = sys.argv[3] if len(sys.argv) > 3 else None
+    if area == "block":                               # block tiles have no area prefix
+        imgs = [p for p in imgs if not p.stem.split("_")[0].isalpha()]
+    elif area:
+        imgs = [p for p in imgs if p.stem.startswith(area + "_")]
+    if not imgs:
+        sys.exit(f"No tiles in {img_dir}" + (f" for area '{area}'" if area else ""))
     model = YOLO(str(weights))
     preds = {p.stem: r for p, r in zip(imgs, model.predict([str(p) for p in imgs], conf=min(CONFS),
                                                             imgsz=TILE_PX, device="cpu", verbose=False))}
     tol = MATCH_M / TILE_M                            # in 0-1 tile units
-    print(f"\nmodel: {weights}\nsplit: {split} ({len(imgs)} tiles), match radius {MATCH_M} m\n")
+    print(f"\nmodel: {weights}\nsplit: {split}{' / ' + area if area else ''} ({len(imgs)} tiles), "
+          f"match radius {MATCH_M} m\n")
     for cls, name in NAMES.items():
         print(f"{name}:")
         print("  conf   labelled  predicted  found   recall  precision")
