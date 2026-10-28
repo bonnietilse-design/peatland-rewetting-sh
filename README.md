@@ -1,152 +1,154 @@
-# Peatland rewetting in Schleswig-Holstein
+# Moorvernässung in Schleswig-Holstein
 
-Where are the peat soils in Schleswig-Holstein, how are they used, how much do they emit – and where would rewetting make the most sense?
+**Deutsch** | [English](README.en.md)
 
-A QGIS / open-source portfolio project by **Bonnie Winter** (2026).
+Wo liegen die Moorböden in Schleswig-Holstein, wie werden sie genutzt, wie viel emittieren sie – und wo wäre eine Wiedervernässung am sinnvollsten?
 
-> All emission figures are **estimates** (area × national emission factors) and are labelled as such. Everything was run on a **test area** of 304 km² around the Sorge lowland (Meggerdorf, Bergenhusen, Tetenhusen); `TEST_MODE = False` in `config.py` runs the same steps for the whole state.
+Ein QGIS-/Open-Source-Portfolioprojekt von **Bonnie Winter** (2026).
 
-## Context
+> Alle Emissionszahlen sind **Schätzungen** (Fläche × nationale Emissionsfaktoren) und als solche gekennzeichnet. Alle Schritte liefen in einem **Testgebiet** von 304 km² in der Sorgeniederung (Meggerdorf, Bergenhusen, Tetenhusen); mit `TEST_MODE = False` in `config.py` laufen dieselben Schritte für das ganze Land.
 
-According to the Land Schleswig-Holstein (Moor-Klimaschutz, Jan 2024), carbon-rich soils cover about 152,800 ha (≈10 % of the state), more than 81 % of them are used for agriculture, and they cause about 17 % of the state's greenhouse gas emissions.
+## Hintergrund
 
-## Key results (test area)
+Laut Land Schleswig-Holstein (Moor-Klimaschutz, Jan. 2024) bedecken kohlenstoffreiche Böden rund 152.800 ha (≈ 10 % der Landesfläche). Über 81 % davon werden landwirtschaftlich genutzt, und sie verursachen etwa 17 % der Treibhausgasemissionen des Landes.
 
-| Question | Result | Step |
+## Wichtigste Ergebnisse (Testgebiet)
+
+| Frage | Ergebnis | Schritt |
 |---|---|---|
-| How much farmland lies on organic soil? | **11,102 ha** – 10,824 ha grassland, 278 ha cropland | 03 |
-| How much does it emit? | **≈ 354,000 t CO2-eq/yr** (estimate); ≈ 293,000 t/yr could be saved by rewetting all of it | 04 |
-| How uncertain is that? | 90 % range 351,000–358,000 t if field-level errors cancel out, 144,000–487,000 t if the whole area deviates from the German average – the truth lies in between | 08 |
-| Where should rewetting start? | To save 75,000 t/yr: choosing **78 whole sub-catchments** wets only **44 ha** of farmland on mineral soil – choosing the best **parcels** instead touches 121–220 catchments and wets **4,500–7,200 ha** of mineral-soil farmland as a side effect | 05, 07 |
-| Can the 1880 map be read automatically? | A small **YOLO26** model, trained on my own computer with hand-labelled tiles, plus rule-based dash detection reproduces my hand digitising on **91 %** of the area it was not tuned on (κ = 0.87) – and reaches **93 % ± 4 %** accuracy (area-weighted) in a blind 100-point check across the rest of the test area | 06x–06v |
-| How has the wet land changed since 1880? | Hand-digitised block (36 km²): **92 %** of the land shown as wet on the 1878–80 map is still organic soil today. Whole test area (304 km², automated): **88 %** (10,441 of 11,872 ha). 1880 *Moor* ≈ today's raised bog; a fifth to a third of the 1880 wet meadows are now **Moorfolgeboden** (peat largely lost); about 5,500 ha of today's fen were already drained pasture or dry meadow in 1880 | 06 |
-| Were the chosen sub-catchments wet in 1880? | Yes: **68 %** of the area of the 78 chosen sub-catchments was wet on the 1878–80 map, against 40 % of the other candidates – although step 07 knew nothing about 1880. Preferring land that was wet in 1880 raises that share of the rewetted farmed peat from 66 % to 85 %, at the cost of ~90 ha more mineral-soil farmland | 07b |
+| Wie viel landwirtschaftliche Fläche liegt auf organischem Boden? | **11.102 ha** – 10.824 ha Grünland, 278 ha Acker | 03 |
+| Wie viel emittiert sie? | **≈ 354.000 t CO2-Äq./Jahr** (Schätzung); ≈ 293.000 t/Jahr ließen sich durch Vernässung der gesamten Fläche einsparen | 04 |
+| Wie unsicher ist das? | 90-%-Bereich 351.000–358.000 t, wenn sich Fehler auf Feldebene ausgleichen; 144.000–487.000 t, wenn das ganze Gebiet vom deutschen Mittel abweicht – die Wahrheit liegt dazwischen | 08 |
+| Wo sollte die Vernässung beginnen? | Für 75.000 t/Jahr Einsparung: Mit **78 ganzen Teileinzugsgebieten** werden nur **44 ha** Acker/Grünland auf Mineralboden mitvernässt – wählt man stattdessen die besten **Flurstücke**, sind 121–220 Einzugsgebiete betroffen und **4.500–7.200 ha** Mineralboden werden als Nebeneffekt nass | 05, 07 |
+| Lässt sich die Karte von 1880 automatisch lesen? | Ein kleines **YOLO26**-Modell, auf meinem eigenen Rechner mit von Hand gelabelten Kacheln trainiert, plus regelbasierte Strichdetektion reproduziert meine Handdigitalisierung auf **91 %** der nicht zum Abstimmen genutzten Fläche (κ = 0,87) – und erreicht **93 % ± 4 %** Genauigkeit (flächengewichtet) in einer blinden 100-Punkte-Prüfung im übrigen Testgebiet | 06x–06v |
+| Wie haben sich die nassen Flächen seit 1880 verändert? | Handdigitalisierter Block (36 km²): **92 %** der auf der Karte von 1878–80 nass dargestellten Fläche sind heute noch organischer Boden. Ganzes Testgebiet (304 km², automatisiert): **88 %** (10.441 von 11.872 ha). *Moor* von 1880 ≈ heutiges Hochmoor; ein Fünftel bis ein Drittel der nassen Wiesen von 1880 ist heute **Moorfolgeboden** (Torf weitgehend verloren); etwa 5.500 ha des heutigen Niedermoors waren schon 1880 entwässerte Weide oder trockene Wiese | 06 |
+| Waren die ausgewählten Teileinzugsgebiete 1880 nass? | Ja: **68 %** der Fläche der 78 ausgewählten Teileinzugsgebiete waren auf der Karte von 1878–80 nass, gegenüber 40 % der übrigen Kandidaten – obwohl Schritt 07 nichts von 1880 wusste. Werden 1880 nasse Flächen bevorzugt, steigt dieser Anteil am vernässten Moor-Grünland/-Acker von 66 % auf 85 %, bei ~90 ha mehr mitvernässtem Mineralboden | 07b |
 
-![Wet land 1878–80 vs. organic soils today, whole test area](outputs/06_historical_yolo_test_catchment.png)
+![Nasse Flächen 1878–80 vs. organische Böden heute, ganzes Testgebiet](outputs/06_historical_yolo_test_catchment.png)
 
-## Methods
+## Methoden
 
-| Step | Script | Method | Tools |
+| Schritt | Skript | Methode | Werkzeuge |
 |---|---|---|---|
-| 00 | `00_check_inputs.py` | Inventory of inputs: CRS, fields, example values | GeoPandas, pyogrio |
-| 01 | `01_prepare_dgm1.py` | 355 DGM1 tiles via the official bulk-download index, XYZ → GeoTIFF, survey years | GDAL, urllib + truststore |
-| 02 | `02_prepare_inputs.py` | Reproject, repair, clip to AOI → one GeoPackage | GeoPandas |
-| 03 | `03_overlay_soils_landuse.py` | Organic soils × arable/grassland (Feldblöcke 2026), per municipality | GeoPandas |
-| 04 | `04_emission_estimate.py` | Area × implied emission factors (Tiemeyer et al. 2020) | pandas |
-| 05 | `05_hydrology.py` | DEM at 5 m (min), official water-body network burned 3 m deep (stream burning), flow accumulation, streams, 350 sub-catchments | GDAL, GRASS `r.watershed` via `qgis_process` |
-| 06 | `06_historical_loss.py` | Wet signatures from the Preußische Landesaufnahme 1878–80 vs. today's soil map – hand-digitised block, or the automated layer for the whole test area (`yolo`) | QGIS, GeoPandas, Shapely |
-| 07 | `07_optimisation.py` | Minimum area for a CO2 target: parcel ranking, parcel optimum, catchment optimum | SciPy `milp` / HiGHS (binary integer programming) |
-| 07b | `07b_history_per_catchment.py` | The 1880 map per sub-catchment: wet share, Moorfolgeboden, chosen vs. other catchments, sensitivity run of 07 that prefers land wet in 1880 | GeoPandas, SciPy `milp` |
-| 08 | `08_monte_carlo.py` | 10,000 runs, skewed (two-piece normal) emission factors, two correlation scenarios | NumPy, SciPy |
-| 09 | `09_export_maps_pyqgis.py` | Atlas: one A4 page per municipality with ≥ 50 ha farmed peat (24 pages) – [web version](docs/atlas_gemeinden_web.pdf) | PyQGIS |
+| 00 | `00_check_inputs.py` | Bestandsaufnahme der Eingangsdaten: KBS, Felder, Beispielwerte | GeoPandas, pyogrio |
+| 01 | `01_prepare_dgm1.py` | 355 DGM1-Kacheln über den amtlichen Massendownload-Index, XYZ → GeoTIFF, Aufnahmejahre | GDAL, urllib + truststore |
+| 02 | `02_prepare_inputs.py` | Umprojizieren, reparieren, auf das Untersuchungsgebiet zuschneiden → ein GeoPackage | GeoPandas |
+| 03 | `03_overlay_soils_landuse.py` | Organische Böden × Acker/Grünland (Feldblöcke 2026), je Gemeinde | GeoPandas |
+| 04 | `04_emission_estimate.py` | Fläche × implizite Emissionsfaktoren (Tiemeyer et al. 2020) | pandas |
+| 05 | `05_hydrology.py` | DGM auf 5 m (Minimum), amtliches Gewässernetz 3 m tief eingebrannt (Stream Burning), Abflussakkumulation, Gewässerlinien, 350 Teileinzugsgebiete | GDAL, GRASS `r.watershed` über `qgis_process` |
+| 06 | `06_historical_loss.py` | Nässesignaturen der Preußischen Landesaufnahme 1878–80 vs. heutige Bodenkarte – handdigitalisierter Block oder automatisierte Ebene für das ganze Testgebiet (`yolo`) | QGIS, GeoPandas, Shapely |
+| 07 | `07_optimisation.py` | Mindestfläche für ein CO2-Ziel: Flurstücks-Ranking, Flurstücks-Optimum, Einzugsgebiets-Optimum | SciPy `milp` / HiGHS (binäre ganzzahlige Optimierung) |
+| 07b | `07b_history_per_catchment.py` | Die Karte von 1880 je Teileinzugsgebiet: nasser Anteil, Moorfolgeboden, ausgewählte vs. übrige Gebiete, Sensitivitätslauf von 07 mit Vorrang für 1880 nasse Flächen | GeoPandas, SciPy `milp` |
+| 08 | `08_monte_carlo.py` | 10.000 Läufe, schiefe (zweiteilige Normal-)Verteilung der Emissionsfaktoren, zwei Korrelationsszenarien | NumPy, SciPy |
+| 09 | `09_export_maps_pyqgis.py` | Atlas: eine A4-Seite je Gemeinde mit ≥ 50 ha landwirtschaftlich genutztem Moor (24 Seiten) – [Webversion](docs/atlas_gemeinden_web.pdf) | PyQGIS |
 
-**Stream burning (step 05).** In flat fen land many ditches are narrower than a 5 m cell or run through culverts, so a flow model on the bare DEM draws streams beside the real watercourses. I lower the DEM by 3 m along the official water-body network (ATKIS Basis-DLM, 1,885 km of lines in the test area, many of them field ditches) before running `r.watershed`. The modelled streams now follow the rivers and ditches; the number of sub-catchments drops from 367 to 350, and the CO2 target in step 07 is reached with 78 instead of 82 of them. Wide rivers are burned only along their centre line, so a second, parallel stream can remain inside the river bed.
+**Stream Burning (Schritt 05).** In flachem Niedermoor sind viele Gräben schmaler als eine 5-m-Zelle oder verlaufen durch Durchlässe, sodass ein Abflussmodell auf dem reinen DGM Gewässer neben die echten Wasserläufe legt. Ich senke das DGM entlang des amtlichen Gewässernetzes (ATKIS Basis-DLM, 1.885 km Linien im Testgebiet, viele davon Feldgräben) um 3 m ab, bevor `r.watershed` läuft. Die modellierten Gewässer folgen jetzt den Flüssen und Gräben; die Zahl der Teileinzugsgebiete sinkt von 367 auf 350, und das CO2-Ziel in Schritt 07 wird mit 78 statt 82 davon erreicht. Breite Flüsse werden nur entlang ihrer Mittellinie eingebrannt, daher kann im Flussbett ein zweiter, paralleler Wasserlauf übrig bleiben.
 
-Each step writes a short report to [`docs/reports/`](docs/reports/). A 40-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
+Jeder Schritt schreibt einen kurzen Bericht nach [`docs/reports/`](docs/reports/). Eine ausführliche Erläuterung des ganzen Projekts (44 Seiten) steht in [`docs/peatland_project_report_2026-10-26_de.pdf`](docs/peatland_project_report_2026-10-26_de.pdf); die Abbildungen darin sind englisch beschriftet. Englische Fassung: [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
 
-### Historical map (step 06)
+### Historische Karte (Schritt 06)
 
-The 1878–80 sheets were digitised by hand at 1:2,500–1:5,000, recording the legend class the map shows rather than an interpretation:
+Die Blätter von 1878–80 habe ich von Hand im Maßstab 1:2.500–1:5.000 digitalisiert. Erfasst wurde die Legendenklasse, die die Karte zeigt, nicht eine Interpretation:
 
-| hist_type | 1898 legend entry | Peat evidence |
+| hist_type | Legende 1898 | Hinweis auf Torf |
 |---|---|---|
-| Moor | Sumpf, Bruch, Moor (tufts + dashes, Torfstich) | certain |
-| nasser Boden / nasse Wiese | wet ground / wet meadow | likely |
-| Heide | heath, lowland only | possible |
+| Moor | Sumpf, Bruch, Moor (Grasbüschel + Striche, Torfstich) | sicher |
+| nasser Boden / nasse Wiese | nasser Boden / nasse Wiese | wahrscheinlich |
+| Heide | Heide, nur in der Niederung | möglich |
 
-Pasture (*Hutung*), dry meadow, sand, arable land and villages were not digitised. Symbol meanings come from the official *Zeichen-Erklärung für die Messtischblätter* (1898) – see [`docs/digitising_legend.png`](docs/digitising_legend.png) and the rules in [`docs/historical_peat_digitising_rules.xlsx`](docs/historical_peat_digitising_rules.xlsx). The comparison only covers the area that was actually checked (`digitised_extent`). Closing road/ditch gaps of 15 m vs. 30 m changes every category by ≤ 1 %.
+Hutung, trockene Wiese, Sand, Acker und Ortschaften wurden nicht digitalisiert. Die Bedeutung der Signaturen stammt aus der amtlichen *Zeichen-Erklärung für die Messtischblätter* (1898) – siehe [`docs/digitising_legend.png`](docs/digitising_legend.png) und die Regeln in [`docs/historical_peat_digitising_rules.xlsx`](docs/historical_peat_digitising_rules.xlsx). Der Vergleich umfasst nur die tatsächlich geprüfte Fläche (`digitised_extent`). Ob Lücken an Wegen und Gräben bis 15 m oder bis 30 m geschlossen werden, ändert jede Kategorie um ≤ 1 %.
 
-### Reading the 1880 map automatically (steps 06x–06c)
+### Die Karte von 1880 automatisch lesen (Schritte 06x–06c)
 
-Hand digitising doesn't scale beyond a few sheets, so I tested whether the same classes can be derived automatically. Everything runs locally on a CPU.
+Handdigitalisierung lässt sich nicht über wenige Blätter hinaus skalieren. Deshalb habe ich getestet, ob sich dieselben Klassen automatisch ableiten lassen. Alles läuft lokal auf einer CPU.
 
-| Step | Script | What it does |
+| Schritt | Skript | Was es tut |
 |---|---|---|
-| 06x | `06x_make_tiles.py` | 1 m GeoTIFF of the block (WCS) → 361 tiles of 320 m, enlarged to 640 px so a tuft becomes ~25 px |
-| – | QGIS | I labelled every tuft (point) and peat cutting (*Torfstich*, rectangle) in 32 tiles, incl. 11 tiles without symbols |
-| 06y | `06y_labels_to_yolo.py` | labels → YOLO format; spatial split 24 / 4 / 4 tiles (edge-neighbours kept together, stratified by content) |
-| – | Ultralytics | `yolo26n`, CPU, `scale=0.2` (keeps the tiny symbols from being shrunk further), stopped early at epoch 124 |
-| 06z | `06z_point_check.py` | point-based check: a symbol counts as found if a detection lies within 8 m |
-| 06b | `06b_predict.py` | detections on all 361 tiles, duplicates merged → map coordinates |
-| 06c | `06c_detections_to_polygons.py` | dash filter + tufts + Torfstich → 1880 classes on a 25 m grid; tuned on the west half, checked on the east half |
-| 06v | `06v_accuracy_check.py` | blind accuracy check: 100 stratified random points outside the block, read by me from the map, area-weighted accuracy (Olofsson et al. 2014) |
+| 06x | `06x_make_tiles.py` | 1-m-GeoTIFF des Blocks (WCS) → 361 Kacheln à 320 m, auf 640 px vergrößert, damit ein Grasbüschel ~25 px groß wird |
+| – | QGIS | Ich habe jedes Grasbüschel (Punkt) und jeden *Torfstich* (Rechteck) in 32 Kacheln gelabelt, davon 11 Kacheln ohne Signaturen |
+| 06y | `06y_labels_to_yolo.py` | Labels → YOLO-Format; räumliche Aufteilung 24 / 4 / 4 Kacheln (benachbarte Kacheln bleiben zusammen, nach Inhalt geschichtet) |
+| – | Ultralytics | `yolo26n`, CPU, `scale=0.2` (damit die winzigen Signaturen nicht weiter verkleinert werden), Abbruch bei Epoche 124 |
+| 06z | `06z_point_check.py` | punktbasierte Prüfung: Eine Signatur gilt als gefunden, wenn eine Detektion innerhalb von 8 m liegt |
+| 06b | `06b_predict.py` | Detektion auf allen 361 Kacheln, Duplikate zusammengeführt → Kartenkoordinaten |
+| 06c | `06c_detections_to_polygons.py` | Strichfilter + Grasbüschel + Torfstich → Klassen von 1880 auf einem 25-m-Raster; abgestimmt auf der Westhälfte, geprüft auf der Osthälfte |
+| 06v | `06v_accuracy_check.py` | blinde Genauigkeitsprüfung: 100 geschichtete Zufallspunkte außerhalb des Blocks, von mir auf der Karte abgelesen, flächengewichtete Genauigkeit (Olofsson et al. 2014) |
 
-**Symbol detection** (4 test tiles never used for training, confidence ≥ 0.20, before merging duplicates): tufts recall 0.75 / precision 0.59; Torfstich 3 of 4 found. The model finds most tufts but with low confidence, so the threshold matters more than the usual default.
+**Signaturerkennung** (4 Testkacheln, die nie im Training waren, Konfidenz ≥ 0,20, vor dem Zusammenführen von Duplikaten): Grasbüschel Recall 0,75 / Precision 0,59; Torfstich 3 von 4 gefunden. Das Modell findet die meisten Grasbüschel, aber mit niedriger Konfidenz; der Schwellenwert ist deshalb wichtiger als der übliche Standardwert.
 
-**Dashes** are found without machine learning: flat ink marks (≤ 3 m high, 5–40 m long) are the dashes of *Bruch* and *nasse Wiese*, while dotted pasture rows, lettering, buildings and field lines fall outside these limits. Dash density alone separates wet from not-wet land almost as well as the hand digitising (AUC 0.97).
+**Striche** werden ohne maschinelles Lernen erkannt: flache Tintenmarken (≤ 3 m hoch, 5–40 m lang) sind die Striche von *Bruch* und *nasser Wiese*; gepunktete Hutungsreihen, Schrift, Gebäude und Feldgrenzen fallen aus diesen Grenzen heraus. Die Strichdichte allein trennt nasse von nicht nassen Flächen fast so gut wie die Handdigitalisierung (AUC 0,97).
 
-**Rules** are those of the hand digitising: tufts + dashes → Moor; recurring Torfstich → Moor; dashes only → nasse Wiese; heath next to recurring Torfstich or joined to a larger moor → Moor ("heath in a moor"). The last rule was added after a first run classified the drained Königsmoor as heath (κ 0.76 → 0.85); it comes from the digitising rules, not from the check data.
+**Regeln** sind die der Handdigitalisierung: Grasbüschel + Striche → Moor; wiederkehrender Torfstich → Moor; nur Striche → nasse Wiese; Heide neben wiederkehrendem Torfstich oder an ein größeres Moor anschließend → Moor („Heide im Moor“). Die letzte Regel kam hinzu, nachdem ein erster Lauf das entwässerte Königsmoor als Heide eingestuft hatte (κ 0,76 → 0,85); sie stammt aus den Digitalisierregeln, nicht aus den Prüfdaten.
 
-| Area | Agreement with hand digitising | κ |
+| Fläche | Übereinstimmung mit Handdigitalisierung | κ |
 |---|---:|---:|
-| west half (used for tuning) | 84 % | 0.74 |
-| **east half (not used)** | **91 %** | **0.87** |
+| Westhälfte (zum Abstimmen genutzt) | 84 % | 0,74 |
+| **Osthälfte (nicht genutzt)** | **91 %** | **0,87** |
 
-![Hand digitising vs. YOLO + rules](outputs/06c_yolo_vs_hand_test_catchment.png)
+![Handdigitalisierung vs. YOLO + Regeln](outputs/06c_yolo_vs_hand_test_catchment.png)
 
-On the east half, Moor is reproduced with an IoU of 0.91 and nasse Wiese with 0.76 (the automation draws nasse Wiese slightly too wide, into dense pasture rows); the small Heide class (29 ha) is hardly reproduced, and moor names are not detected. Plan and labelling guide: [`docs/yolo_plan.md`](docs/yolo_plan.md), [`docs/labelling_guide.png`](docs/labelling_guide.png). Ultralytics is licensed under AGPL-3.0.
+Auf der Osthälfte wird Moor mit einer IoU von 0,91 und nasse Wiese mit 0,76 reproduziert (die Automatisierung zeichnet nasse Wiese etwas zu weit, bis in dichte Hutungsreihen); die kleine Klasse Heide (29 ha) wird kaum reproduziert, und Moornamen werden nicht erkannt. Plan und Labelanleitung: [`docs/yolo_plan.md`](docs/yolo_plan.md), [`docs/labelling_guide.png`](docs/labelling_guide.png). Ultralytics steht unter der AGPL-3.0.
 
-### Applying it to the whole test area
+### Anwendung auf das ganze Testgebiet
 
-The same model and the thresholds tuned on the block (no re-tuning) were applied to the whole test area: 3,119 tiles, about 20 minutes on a laptop CPU. Inside the block the result still agrees with my hand digitising on 87 % (κ 0.81). The final layer uses the tufts of the first model and the peat cuttings of the second (11,943 tufts, 1,129 peat cuttings), and measures dash density per field – see *Second training round* and *Dash density per field* below.
+Dasselbe Modell und die auf dem Block abgestimmten Schwellenwerte (ohne neues Abstimmen) habe ich auf das ganze Testgebiet angewendet: 3.119 Kacheln, etwa 20 Minuten auf einer Laptop-CPU. Innerhalb des Blocks stimmt das Ergebnis weiterhin zu 87 % mit meiner Handdigitalisierung überein (κ 0,81). Die endgültige Ebene nutzt die Grasbüschel des ersten Modells und die Torfstiche des zweiten (11.943 Grasbüschel, 1.129 Torfstiche) und misst die Strichdichte je Feld – siehe *Zweite Trainingsrunde* und *Strichdichte je Feld* unten.
 
-![1880 classes for the whole test area](outputs/06c_yolo_aoi_test_catchment.png)
+![Klassen von 1880 für das ganze Testgebiet](outputs/06c_yolo_aoi_test_catchment.png)
 
-Twelve spot-check tiles outside the block showed no false detections on lettering, field lines or villages, but missed peat cuttings at a steep angle and some larger tufts drawn in a different style. A first run turned a dry heath near Friedrichsneuland into Moor, because tuft base lines counted as dashes and the "heath in a moor" rule spread across the whole heath. I fixed both (base lines within 10 m of a tuft are ignored; heath only joins a moor at least as large as itself); on the block this leaves the check result unchanged (κ 0.85 → 0.86). Automated Heide is left out of the 1880 wet land, as it is mostly geest heath.
+Zwölf Stichprobenkacheln außerhalb des Blocks zeigten keine Fehldetektionen auf Schrift, Feldgrenzen oder Ortschaften, verpassten aber steil gezeichnete Torfstiche und einige größere, anders gezeichnete Grasbüschel. Ein erster Lauf machte eine trockene Heide bei Friedrichsneuland zu Moor, weil die Grundlinien der Grasbüschel als Striche zählten und die Regel „Heide im Moor“ sich über die ganze Heide ausbreitete. Beides habe ich behoben (Grundlinien innerhalb von 10 m eines Grasbüschels werden ignoriert; Heide schließt sich nur einem mindestens gleich großen Moor an); auf dem Block bleibt das Prüfergebnis dabei unverändert (κ 0,85 → 0,86). Automatisch erkannte Heide zählt nicht zur nassen Fläche von 1880, da es überwiegend Geestheide ist.
 
-**Blind accuracy check** (`06v`): 100 random points outside the block, 25 per mapped class, which I classified from the 1880 map without seeing the prediction.
+**Blinde Genauigkeitsprüfung** (`06v`): 100 Zufallspunkte außerhalb des Blocks, 25 je kartierter Klasse, die ich auf der Karte von 1880 eingestuft habe, ohne die Vorhersage zu sehen.
 
-| Class | Mapped ha | User's accuracy | Producer's accuracy | Estimated ha (± 95 %) |
+| Klasse | Kartiert (ha) | Nutzergenauigkeit | Herstellergenauigkeit | Geschätzt (ha, ± 95 %) |
 |---|---:|---:|---:|---:|
-| Moor | 3,690 | 0.89 | 0.93 | 3,714 ± 726 |
-| nasse Wiese | 5,881 | 0.86 | 0.86 | 4,754 ± 1,668 |
-| Heide | 831 | 0.89 | 0.78 | 910 ± 393 |
-| none | 16,356 | 0.96 | 0.96 | 17,381 ± 1,605 |
-| **Overall accuracy** | | **93 % ± 4 %** | | |
+| Moor | 3.690 | 0,89 | 0,93 | 3.714 ± 726 |
+| nasse Wiese | 5.881 | 0,86 | 0,86 | 4.754 ± 1.668 |
+| Heide | 831 | 0,89 | 0,78 | 910 ± 393 |
+| keine | 16.356 | 0,96 | 0,96 | 17.381 ± 1.605 |
+| **Gesamtgenauigkeit** | | **93 % ± 4 %** | | |
 
-Moor is reliable; nasse Wiese is still the least certain class, so the "lost" area of the whole-area comparison (1,431 ha) is an upper bound.
+Moor ist zuverlässig; nasse Wiese ist weiterhin die unsicherste Klasse, daher ist die „verlorene“ Fläche im Vergleich über das ganze Gebiet (1.431 ha) eine Obergrenze.
 
-### Second training round
+### Zweite Trainingsrunde
 
-The spot checks showed three weak points: peat cuttings drawn diagonally or horizontally, large fan-shaped tufts, and nasse Wiese spreading into pasture rows. I labelled 10 more tiles outside the block that cover the first two (181 tufts, 36 peat cuttings), chosen away from the 100 check points so that the blind check stays independent. They were added to training only; validation and test tiles stayed the same. The model was retrained with moderate rotation (±30°, no vertical flip – tufts are always drawn upright). The pasture rows are a problem of the dash rule, not of the model, so more labels cannot fix them.
+Die Stichproben zeigten drei Schwachstellen: diagonal oder waagerecht gezeichnete Torfstiche, große fächerförmige Grasbüschel und nasse Wiese, die in Hutungsreihen hineinreicht. Ich habe 10 weitere Kacheln außerhalb des Blocks gelabelt, die die ersten beiden abdecken (181 Grasbüschel, 36 Torfstiche), ausgewählt abseits der 100 Prüfpunkte, damit die blinde Prüfung unabhängig bleibt. Sie kamen nur ins Training; Validierungs- und Testkacheln blieben gleich. Das Modell wurde mit moderater Rotation (±30°, ohne vertikales Spiegeln – Grasbüschel stehen immer aufrecht) neu trainiert. Die Hutungsreihen sind ein Problem der Strichregel, nicht des Modells; mehr Labels können sie nicht beheben.
 
-| Blind check, 100 points | Round 1 | Round 2 | Round 1 tufts + round 2 peat cuttings |
+| Blinde Prüfung, 100 Punkte | Runde 1 | Runde 2 | Grasbüschel Runde 1 + Torfstiche Runde 2 |
 |---|---:|---:|---:|
-| Overall accuracy | 90 % ± 6 % | 90 % ± 6 % | **91 % ± 6 %** |
-| Moor, user's / producer's acc. | 0.92 / 0.86 | 0.84 / 0.89 | 0.90 / 0.93 |
-| Heide, user's / producer's acc. | 0.84 / 0.69 | 0.92 / 0.78 | 0.89 / 0.81 |
-| Block, east half (κ) | 0.86 | 0.86 | 0.86 |
+| Gesamtgenauigkeit | 90 % ± 6 % | 90 % ± 6 % | **91 % ± 6 %** |
+| Moor, Nutzer- / Herstellergen. | 0,92 / 0,86 | 0,84 / 0,89 | 0,90 / 0,93 |
+| Heide, Nutzer- / Herstellergen. | 0,84 / 0,69 | 0,92 / 0,78 | 0,89 / 0,81 |
+| Block, Osthälfte (κ) | 0,86 | 0,86 | 0,86 |
 
-What happened: the second model finds peat cuttings much better (all 6 on the validation and test tiles, 46 % more on the whole area), but its tuft confidences cluster around 0.15–0.25, so the result swings with the threshold – at 0.15 it also "finds" tufts in dashed meadows, and tufts + dashes become false Moor. Training longer did not change that. A stricter peat-cutting rule (now tuned on the block: ≥ 3 cuttings per 275 m instead of 2) hardly changed anything, which showed that the false Moor came from the tufts, not the peat cuttings. Taking each symbol from the model that is reliable for it gives the best map. The gain is within the confidence interval, and the combination is the third variant checked against the same 100 points, so I read it as "slightly better, not significantly better". Comparing a new map with a sample drawn from an older one uses the estimator for strata that differ from the map classes (Stehman 2014; `06v_accuracy_check.py compare`).
+Was passiert ist: Das zweite Modell findet Torfstiche deutlich besser (alle 6 auf den Validierungs- und Testkacheln, 46 % mehr im ganzen Gebiet), aber seine Konfidenzen für Grasbüschel liegen gehäuft bei 0,15–0,25, sodass das Ergebnis mit dem Schwellenwert schwankt – bei 0,15 „findet“ es auch Grasbüschel in gestrichelten Wiesen, und aus Grasbüscheln + Strichen wird falsches Moor. Längeres Training änderte daran nichts. Eine strengere Torfstichregel (jetzt auf dem Block abgestimmt: ≥ 3 Torfstiche je 275 m statt 2) änderte kaum etwas; daran zeigte sich, dass das falsche Moor von den Grasbüscheln kam, nicht von den Torfstichen. Jede Signatur aus dem Modell zu nehmen, das für sie zuverlässig ist, ergibt die beste Karte. Der Gewinn liegt innerhalb des Konfidenzintervalls, und die Kombination ist die dritte Variante, die gegen dieselben 100 Punkte geprüft wurde – ich lese das als „etwas besser, nicht signifikant besser“. Der Vergleich einer neuen Karte mit einer Stichprobe, die aus einer älteren gezogen wurde, nutzt den Schätzer für Schichten, die nicht den Kartenklassen entsprechen (Stehman 2014; `06v_accuracy_check.py compare`).
 
-### Dash density per field
+### Strichdichte je Feld
 
-The remaining nasse Wiese errors sat in **dry meadow** (*trockene Wiese*, rows of dot pairs). The dot pairs themselves were correctly ignored – but the dash density was averaged over a 125 m moving window, which reached across the field line into a neighbouring wet meadow. The surveyors drew one signature per field, so I now let the map's own field lines (ink longer than 80 m) split the land into fields and compute the dash density inside each field; tiny slivers and large open areas keep the window value. 06c tries both methods on the west half of the block.
+Die verbleibenden Fehler bei nasser Wiese lagen in **trockener Wiese** (Reihen von Punktpaaren). Die Punktpaare selbst wurden korrekt ignoriert – aber die Strichdichte wurde über ein gleitendes Fenster von 125 m gemittelt, das über die Feldgrenze in eine benachbarte nasse Wiese hineinreichte. Die Landmesser zeichneten eine Signatur je Feld; deshalb lasse ich jetzt die Feldgrenzen der Karte selbst (Tinte länger als 80 m) die Fläche in Felder teilen und berechne die Strichdichte innerhalb jedes Feldes; sehr kleine Splitter und große offene Flächen behalten den Fensterwert. 06c probiert beide Methoden auf der Westhälfte des Blocks aus.
 
-| Dash density | κ west (tuning) | κ east (check) |
+| Strichdichte | κ West (Abstimmung) | κ Ost (Prüfung) |
 |---|---:|---:|
-| moving window | 0.740 | 0.856 |
-| per field | 0.736 | **0.866** |
+| gleitendes Fenster | 0,740 | 0,856 |
+| je Feld | 0,736 | **0,866** |
 
-The two were equal on the west half, so I set a rule **before** looking at the check points: within 0.01 κ, the field method wins, because it follows the digitising rule "boundaries follow the field line". In the blind check it fixes two of the three dry-meadow errors but misses three sparse wet meadows; 87 instead of 88 of the 100 points are right, while the area-weighted accuracy rises from 91 % to 93 % because one corrected point carries a large weight. Overall: about as accurate, with boundaries that follow the fields as they were drawn.
+Auf der Westhälfte lagen beide gleichauf. Deshalb habe ich **vor** dem Blick auf die Prüfpunkte eine Regel festgelegt: Liegen beide innerhalb von 0,01 κ, gewinnt die Feldmethode, weil sie der Digitalisierregel „Grenzen folgen der Feldgrenze“ entspricht. In der blinden Prüfung behebt sie zwei der drei Fehler in trockener Wiese, verpasst aber drei lückenhafte nasse Wiesen; 87 statt 88 der 100 Punkte sind richtig, während die flächengewichtete Genauigkeit von 91 % auf 93 % steigt, weil ein korrigierter Punkt ein großes Gewicht hat. Insgesamt: etwa gleich genau, mit Grenzen, die den Feldern folgen, wie sie gezeichnet wurden.
 
-## Repository structure
+## Aufbau des Repositorys
 
 ```
-config.py            all paths, fields, parameters, emission factors
-peatsh/common.py     shared helpers (AOI, clipping, GeoPackage I/O, reports)
-scripts/             numbered steps 00–09 (06x–06c: automated reading of the 1880 map)
-qgis/                QGIS project, styles (.qml)
-data/raw/            downloads and hand-digitised layers – not in git
-data/interim/        intermediate rasters, map tiles, YOLO dataset and model – not in git
-data/processed/      peatland_sh.gpkg – not in git
-outputs/             maps, figures, CSV tables
-docs/                reports per step, project report, digitising legend and rules
+config.py            alle Pfade, Felder, Parameter, Emissionsfaktoren
+peatsh/common.py     gemeinsame Hilfsfunktionen (Gebiet, Zuschnitt, GeoPackage-E/A, Berichte)
+scripts/             nummerierte Schritte 00–09 (06x–06c: automatisches Lesen der Karte von 1880)
+qgis/                QGIS-Projekt, Stile (.qml)
+data/raw/            Downloads und handdigitalisierte Ebenen – nicht in git
+data/interim/        Zwischenraster, Kartenkacheln, YOLO-Datensatz und -Modell – nicht in git
+data/processed/      peatland_sh.gpkg – nicht in git
+outputs/             Karten, Abbildungen, CSV-Tabellen
+docs/                Berichte je Schritt, Projektbericht, Digitalisierlegende und -regeln
 ```
 
-## How to run
+## Ausführen
 
-Developed with the Python that ships with **QGIS LTR** on Windows (GeoPandas, GDAL, SciPy, matplotlib included), run from the OSGeo4W Shell:
+Entwickelt mit dem Python, das mit **QGIS LTR** unter Windows mitgeliefert wird (GeoPandas, GDAL, SciPy, matplotlib enthalten), ausgeführt in der OSGeo4W Shell:
 
 ```bat
 python -m pip install --user pulp tabulate truststore
@@ -155,46 +157,48 @@ python scripts\01_prepare_dgm1.py
 python scripts\02_prepare_inputs.py
 python scripts\03_overlay_soils_landuse.py
 python scripts\04_emission_estimate.py
-python scripts\05_hydrology.py        :: needs: qgis_process-qgis-ltr plugins enable grassprovider
-python scripts\06_historical_loss.py  :: needs the hand-digitised layer in data\raw\historical\
+python scripts\05_hydrology.py        :: benötigt: qgis_process-qgis-ltr plugins enable grassprovider
+python scripts\06_historical_loss.py  :: benötigt die handdigitalisierte Ebene in data\raw\historical\
 python scripts\07_optimisation.py
-python scripts\07b_history_per_catchment.py  :: after 06 yolo
+python scripts\07b_history_per_catchment.py  :: nach 06 yolo
 python scripts\08_monte_carlo.py
 ```
 
-Step 09 runs inside QGIS (Python console). The YOLO steps use a separate environment (`python -m venv yolo-env`, then `pip install ultralytics` with the CPU build of PyTorch); 06x, 06y, 06c, 06v and 06 run in the OSGeo4W Shell, training, 06z and 06b in `yolo-env`:
+Schritt 09 läuft in QGIS (Python-Konsole). Die YOLO-Schritte nutzen eine eigene Umgebung (`python -m venv yolo-env`, dann `pip install ultralytics` mit der CPU-Version von PyTorch); 06x, 06y, 06c, 06v und 06 laufen in der OSGeo4W Shell, Training, 06z und 06b in `yolo-env`:
 
 ```bat
-:: block: tiles, labels → dataset, training, check, tuning
+:: Block: Kacheln, Labels → Datensatz, Training, Prüfung, Abstimmung
 python scripts\06x_make_tiles.py
 python scripts\06y_labels_to_yolo.py
 yolo detect train data=dataset/data.yaml model=yolo26n.pt imgsz=640 epochs=300 patience=80 batch=8 device=cpu workers=0 scale=0.2
 python scripts\06b_predict.py
 python scripts\06c_detections_to_polygons.py
-:: whole test area: same model and thresholds
+:: ganzes Testgebiet: dasselbe Modell, dieselben Schwellenwerte
 python scripts\06x_make_tiles.py aoi
 python scripts\06b_predict.py aoi
 python scripts\06c_detections_to_polygons.py aoi
 python scripts\06_historical_loss.py yolo
-python scripts\06v_accuracy_check.py make   :: then fill "ref" in QGIS
+python scripts\06v_accuracy_check.py make   :: dann "ref" in QGIS ausfüllen
 python scripts\06v_accuracy_check.py eval
-:: second round: label more tiles in tiles_aoi.gpkg (use = 'label'), then
+:: zweite Runde: weitere Kacheln in tiles_aoi.gpkg labeln (use = 'label'), dann
 python scripts\06y_labels_to_yolo.py
 yolo detect train data=dataset/data.yaml model=yolo26n.pt imgsz=640 epochs=150 patience=40 batch=8 device=cpu workers=2 scale=0.2 degrees=30 flipud=0 project=runs name=train3
 python scripts\06b_predict.py aoi data\interim\yolo\runs\detect\runs\train3\weights\best.pt 0.15/0.20
 python scripts\06v_accuracy_check.py compare data\interim\yolo\round1\yolo_classes_aoi.tif
-:: final map: round-1 tufts + round-2 peat cuttings in detections*.csv, then 06c, 06c aoi, 06 yolo, 07b
-``` Alternatively, `environment.yml` describes an equivalent conda environment. Data downloads are listed in [DATA_SOURCES.md](DATA_SOURCES.md).
+:: endgültige Karte: Grasbüschel Runde 1 + Torfstiche Runde 2 in detections*.csv, dann 06c, 06c aoi, 06 yolo, 07b
+```
 
-## Limitations
+Alternativ beschreibt `environment.yml` eine gleichwertige conda-Umgebung. Die Datenquellen stehen in [DATA_SOURCES.md](DATA_SOURCES.md).
 
-- Emission factors are national class averages; water level, peat thickness and management within a class are ignored.
-- The DEM does not show pipe drains, culverts or pumping stations, which control water in fen landscapes; the test area is a hand-drawn polygon, not a real catchment, so only complete sub-catchments are used.
-- The historical comparison sets map *signatures* against a *soil* map – different concepts. Hand digitising, the positional accuracy of the 1880 survey and a legend ~20 years younger than the sheets add uncertainty; about a third of the "lost" area lies within 25 m of a boundary.
-- DGM1 tiles come from survey years 2005–2025; drained peat subsides, so tile edges can show small steps.
-- The YOLO models were trained on 42 tiles, 32 of them from one 36 km² block. Across the whole test area the map reaches 93 % ± 4 % accuracy (100 blind points; the final map is the result of choosing between several variants checked against these points, so this figure is slightly optimistic), nasse Wiese is the least certain class (user's accuracy 0.86), the second model's tuft confidences are unstable, and moor names are not read. Land around peat cuttings is mapped as squares rather than whole fields. The rules were tuned on one block; other parts of the state (marsh, raised bogs, eastern hills) would need their own checks.
-- Stream burning uses the centre lines of the water-body network; wide rivers and pipe drains are not represented.
+## Grenzen
 
-## Data and licences
+- Die Emissionsfaktoren sind nationale Klassenmittel; Wasserstand, Torfmächtigkeit und Bewirtschaftung innerhalb einer Klasse werden nicht berücksichtigt.
+- Das DGM zeigt keine Drainagen, Durchlässe oder Schöpfwerke, die den Wasserhaushalt im Niedermoor steuern; das Testgebiet ist ein von Hand gezeichnetes Polygon, kein echtes Einzugsgebiet, daher werden nur vollständige Teileinzugsgebiete verwendet.
+- Der historische Vergleich stellt Karten*signaturen* einer *Boden*karte gegenüber – unterschiedliche Konzepte. Handdigitalisierung, die Lagegenauigkeit der Aufnahme von 1880 und eine etwa 20 Jahre jüngere Legende erhöhen die Unsicherheit; etwa ein Drittel der „verlorenen“ Fläche liegt innerhalb von 25 m einer Grenze.
+- Die DGM1-Kacheln stammen aus den Aufnahmejahren 2005–2025; entwässerter Torf sackt, daher können an Kachelrändern kleine Stufen auftreten.
+- Die YOLO-Modelle wurden auf 42 Kacheln trainiert, 32 davon aus einem einzigen 36-km²-Block. Im ganzen Testgebiet erreicht die Karte 93 % ± 4 % Genauigkeit (100 blinde Punkte; die endgültige Karte ist das Ergebnis einer Auswahl zwischen mehreren gegen diese Punkte geprüften Varianten, daher ist der Wert leicht optimistisch). Nasse Wiese ist die unsicherste Klasse (Nutzergenauigkeit 0,86), die Grasbüschel-Konfidenzen des zweiten Modells sind instabil, und Moornamen werden nicht gelesen. Flächen um Torfstiche werden als Quadrate statt als ganze Felder kartiert. Die Regeln wurden auf einem Block abgestimmt; andere Landesteile (Marsch, Hochmoore, östliches Hügelland) bräuchten eigene Prüfungen.
+- Das Stream Burning nutzt die Mittellinien des Gewässernetzes; breite Flüsse und Drainagen werden nicht abgebildet.
 
-See [DATA_SOURCES.md](DATA_SOURCES.md). Code was written with AI assistance; every step was run and checked by me.
+## Daten und Lizenzen
+
+Siehe [DATA_SOURCES.md](DATA_SOURCES.md). Der Code wurde mit KI-Unterstützung geschrieben; jeden Schritt habe ich selbst ausgeführt und geprüft.
