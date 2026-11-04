@@ -141,6 +141,14 @@ The map separates heath (Heide) from Moor through the rules, and heath was its w
 
 The symbol check improved (heath F1 on the test tiles up to 0.59), and the best model (train13) raised Heide producer's accuracy on the old 100 points from 0.78 (published map) to 0.83 at the same overall accuracy (93 % ± 4 %). Because those 100 points had been used to choose between variants, I decided beforehand that a switch had to win a new blind test. `06u` draws points only where the published map and the new one disagree (1,041 ha, 3.9 % of the checked area) – everywhere else both are equally right or wrong. On 40 such points the published map was right 16 times, train13 14 times (difference −0.2 percentage points, 95 %: −1.3 to +0.9). A tie, so the published map stays. Each retrain on more labels swapped errors between the two tuft types rather than removing them. Full log: [`docs/yolo_experiments.md`](docs/yolo_experiments.md).
 
+### QGIS plugin "Wetland 1880 Reader"
+
+The whole chain – tiles, YOLO, dashes per field, the rules – is also packaged as a QGIS Processing tool ([`qgis_plugin/wetland1880`](qgis_plugin/wetland1880)), so the 1880 map can be read for any other area. On the test area it reproduces the published map within half a percent for Moor and nasse Wiese (Moor 4,602 ha, nasse Wiese 7,132 ha, Heide 870 ha; 6½ minutes on a laptop CPU). The small differences come from the plugin cutting its own tiles.
+
+- Download `wetland1880.zip` (models included) from the [latest release](https://github.com/bonnietilse-design/peatland-rewetting-sh/releases/latest) and install it via *Plugins → Manage and Install Plugins → Install from ZIP*.
+- YOLO runs in a separate Python environment (`python -m venv yolo-env`, then `pip install ultralytics`); the tool asks for that environment's `python.exe`. Nothing needs to be installed into QGIS's own Python.
+- Processing Toolbox → *Wetland 1880 Reader* → *Classify 1878–80 map (YOLO + rules)*: input is the 1 m Chronologen map (WCS), optionally an area of interest.
+
 ## Repository structure
 
 ```

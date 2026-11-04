@@ -141,6 +141,14 @@ Die Karte trennt Heide und Moor über die Regeln, und Heide war ihre schwächste
 
 Die Signaturprüfung wurde besser (Heide-F1 auf den Testkacheln bis 0,59), und das beste Modell (train13) hob die Herstellergenauigkeit für Heide auf den alten 100 Punkten von 0,78 (veröffentlichte Karte) auf 0,83 bei gleicher Gesamtgenauigkeit (93 % ± 4 %). Weil diese 100 Punkte schon zur Auswahl zwischen Varianten gedient hatten, habe ich vorher festgelegt, dass ein Wechsel einen neuen blinden Test gewinnen muss. `06u` zieht Punkte nur dort, wo veröffentlichte und neue Karte sich unterscheiden (1.041 ha, 3,9 % der geprüften Fläche) – überall sonst sind beide gleich richtig oder falsch. Auf 40 solchen Punkten lag die veröffentlichte Karte 16-mal richtig, train13 14-mal (Differenz −0,2 Prozentpunkte, 95 %: −1,3 bis +0,9). Ein Unentschieden, also bleibt die veröffentlichte Karte. Jedes neue Training mit mehr Labels hat Fehler zwischen den beiden Büscheltypen verschoben, statt sie zu beseitigen. Vollständiges Protokoll: [`docs/yolo_experiments.md`](docs/yolo_experiments.md).
 
+### QGIS-Plugin „Wetland 1880 Reader“
+
+Die ganze Kette – Kacheln, YOLO, Strichdichte je Feld, die Regeln – gibt es auch als QGIS-Processing-Werkzeug ([`qgis_plugin/wetland1880`](qgis_plugin/wetland1880)), sodass die Karte von 1880 für jedes andere Gebiet gelesen werden kann. Im Testgebiet reproduziert es die veröffentlichte Karte für Moor und nasse Wiese auf ein halbes Prozent genau (Moor 4.602 ha, nasse Wiese 7.132 ha, Heide 870 ha; 6½ Minuten auf einer Laptop-CPU). Die kleinen Abweichungen kommen daher, dass das Plugin seine eigenen Kacheln schneidet.
+
+- `wetland1880.zip` (mit Modellen) aus dem [neuesten Release](https://github.com/bonnietilse-design/peatland-rewetting-sh/releases/latest) herunterladen und über *Erweiterungen → Erweiterungen verwalten und installieren → Aus ZIP installieren* installieren.
+- YOLO läuft in einer eigenen Python-Umgebung (`python -m venv yolo-env`, dann `pip install ultralytics`); das Werkzeug fragt nach deren `python.exe`. In das Python von QGIS muss nichts installiert werden.
+- Werkzeugkiste → *Wetland 1880 Reader* → *Classify 1878–80 map (YOLO + rules)*: Eingabe ist die 1-m-Chronologen-Karte (WCS), optional ein Untersuchungsgebiet.
+
 ## Aufbau des Repositorys
 
 ```
