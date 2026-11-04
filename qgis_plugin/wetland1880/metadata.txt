@@ -1,0 +1,17 @@
+[general]
+name=Wetland 1880 Reader
+qgisMinimumVersion=3.28
+description=Reads moor, wet meadow and heath from the Prussian survey map 1878–80 with a small YOLO model and the rules of the 1898 map key.
+version=0.1.0
+author=Bonnie Winter
+email=bonnietilse@gmail.com
+about=Processing tool "Classify 1878–80 map (YOLO + rules)". A YOLO26 model finds tufts and peat cuttings (Torfstich) on the 1 m map; dashes are measured per field; the rules of the official 1898 key (Zeichen-Erklärung für die Messtischblätter) turn them into the classes Moor, nasse Wiese and Heide on a 25 m grid. Developed and checked on the Treene–Sorge lowland in Schleswig-Holstein (93 % ± 4 % overall accuracy, blind 100-point check). Needs a separate Python environment with Ultralytics (pip install ultralytics); everything runs locally. Developed with AI assistance. Licence AGPL-3.0 (Ultralytics).
+tracker=https://github.com/bonnietilse-design/peatland-rewetting-sh/issues
+repository=https://github.com/bonnietilse-design/peatland-rewetting-sh
+tags=historical maps, peat, wetland, yolo, machine learning, schleswig-holstein, preussische landesaufnahme
+homepage=https://github.com/bonnietilse-design/peatland-rewetting-sh
+category=Analysis
+icon=icon.png
+experimental=True
+deprecated=False
+hasProcessingProvider=yes

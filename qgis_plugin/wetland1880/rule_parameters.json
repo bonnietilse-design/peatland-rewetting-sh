@@ -1,0 +1,9 @@
+{
+  "t_min": 1,
+  "d_min": 0.311,
+  "r_heath": 9,
+  "torf_min": 2,
+  "torf_near": 5,
+  "dash_mode": "field",
+  "tuned_on": "west half of the block"
+}
