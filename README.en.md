@@ -6,6 +6,8 @@ Where are the peat soils in Schleswig-Holstein, how are they used, how much do t
 
 A QGIS / open-source portfolio project by **Bonnie Winter** (2026).
 
+📖 **Story map:** [Peatland rewetting in Schleswig-Holstein – ArcGIS StoryMap](https://storymaps.arcgis.com/stories/1bdf34c233dc4fa786bf136ccaeab41a)
+
 > All emission figures are **estimates** (area × national emission factors) and are labelled as such. Everything was run on a **test area** of 304 km² around the Sorge lowland (Meggerdorf, Bergenhusen, Tetenhusen); `TEST_MODE = False` in `config.py` runs the same steps for the whole state.
 
 ## Context

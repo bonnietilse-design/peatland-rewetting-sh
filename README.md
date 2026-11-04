@@ -6,6 +6,8 @@ Wo liegen die Moorböden in Schleswig-Holstein, wie werden sie genutzt, wie viel
 
 Ein QGIS-/Open-Source-Portfolioprojekt von **Bonnie Winter** (2026).
 
+📖 **Story Map:** [Moorvernässung in Schleswig-Holstein – ArcGIS StoryMap](https://storymaps.arcgis.com/stories/1bdf34c233dc4fa786bf136ccaeab41a)
+
 > Alle Emissionszahlen sind **Schätzungen** (Fläche × nationale Emissionsfaktoren) und als solche gekennzeichnet. Alle Schritte liefen in einem **Testgebiet** von 304 km² in der Sorgeniederung (Meggerdorf, Bergenhusen, Tetenhusen); mit `TEST_MODE = False` in `config.py` laufen dieselben Schritte für das ganze Land.
 
 ## Hintergrund
