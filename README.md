@@ -72,6 +72,7 @@ Handdigitalisierung lässt sich nicht über wenige Blätter hinaus skalieren. De
 | 06b | `06b_predict.py` | Detektion auf allen 361 Kacheln, Duplikate zusammengeführt → Kartenkoordinaten |
 | 06c | `06c_detections_to_polygons.py` | Strichfilter + Grasbüschel + Torfstich → Klassen von 1880 auf einem 25-m-Raster; abgestimmt auf der Westhälfte, geprüft auf der Osthälfte |
 | 06v | `06v_accuracy_check.py` | blinde Genauigkeitsprüfung: 100 geschichtete Zufallspunkte außerhalb des Blocks, von mir auf der Karte abgelesen, flächengewichtete Genauigkeit (Olofsson et al. 2014) |
+| 06u | `06u_disagreement_check.py` | blinde Prüfung zweier Karten nur dort, wo sie sich unterscheiden – entscheidet, ob ein neues Modell die veröffentlichte Karte ersetzt |
 
 **Signaturerkennung** (4 Testkacheln, die nie im Training waren, Konfidenz ≥ 0,20, vor dem Zusammenführen von Duplikaten): Grasbüschel Recall 0,75 / Precision 0,59; Torfstich 3 von 4 gefunden. Das Modell findet die meisten Grasbüschel, aber mit niedriger Konfidenz; der Schwellenwert ist deshalb wichtiger als der übliche Standardwert.
 
@@ -131,6 +132,12 @@ Die verbleibenden Fehler bei nasser Wiese lagen in **trockener Wiese** (Reihen v
 | je Feld | 0,736 | **0,866** |
 
 Auf der Westhälfte lagen beide gleichauf. Deshalb habe ich **vor** dem Blick auf die Prüfpunkte eine Regel festgelegt: Liegen beide innerhalb von 0,01 κ, gewinnt die Feldmethode, weil sie der Digitalisierregel „Grenzen folgen der Feldgrenze“ entspricht. In der blinden Prüfung behebt sie zwei der drei Fehler in trockener Wiese, verpasst aber drei lückenhafte nasse Wiesen; 87 statt 88 der 100 Punkte sind richtig, während die flächengewichtete Genauigkeit von 91 % auf 93 % steigt, weil ein korrigierter Punkt ein großes Gewicht hat. Insgesamt: etwa gleich genau, mit Grenzen, die den Feldern folgen, wie sie gezeichnet wurden.
+
+### Zwei Grasbüschel-Klassen – versucht, nicht übernommen
+
+Die Karte trennt Heide und Moor über die Regeln, und Heide war ihre schwächste Klasse. Ich habe versucht, das im Modell zu lösen: Von train9 bis train13 habe ich Heide-Grasbüschel und Bruch-Grasbüschel als zwei Klassen gelabelt, Heide-Kacheln aus drei weiteren Kartenblättern ergänzt (Dosenmoor, Lürschau, Segeberger Heide; am Ende 419 Heide-Büschel), der Validierung eigene Heide-Kacheln gegeben und fünfmal neu trainiert.
+
+Die Signaturprüfung wurde besser (Heide-F1 auf den Testkacheln bis 0,59), und das beste Modell (train13) hob die Herstellergenauigkeit für Heide auf den alten 100 Punkten von 0,78 (veröffentlichte Karte) auf 0,83 bei gleicher Gesamtgenauigkeit (93 % ± 4 %). Weil diese 100 Punkte schon zur Auswahl zwischen Varianten gedient hatten, habe ich vorher festgelegt, dass ein Wechsel einen neuen blinden Test gewinnen muss. `06u` zieht Punkte nur dort, wo veröffentlichte und neue Karte sich unterscheiden (1.041 ha, 3,9 % der geprüften Fläche) – überall sonst sind beide gleich richtig oder falsch. Auf 40 solchen Punkten lag die veröffentlichte Karte 16-mal richtig, train13 14-mal (Differenz −0,2 Prozentpunkte, 95 %: −1,3 bis +0,9). Ein Unentschieden, also bleibt die veröffentlichte Karte. Jedes neue Training mit mehr Labels hat Fehler zwischen den beiden Büscheltypen verschoben, statt sie zu beseitigen. Vollständiges Protokoll: [`docs/yolo_experiments.md`](docs/yolo_experiments.md).
 
 ## Aufbau des Repositorys
 
@@ -196,7 +203,7 @@ Alternativ beschreibt `environment.yml` eine gleichwertige conda-Umgebung. Die D
 - Das DGM zeigt keine Drainagen, Durchlässe oder Schöpfwerke, die den Wasserhaushalt im Niedermoor steuern; das Testgebiet ist ein von Hand gezeichnetes Polygon, kein echtes Einzugsgebiet, daher werden nur vollständige Teileinzugsgebiete verwendet.
 - Der historische Vergleich stellt Karten*signaturen* einer *Boden*karte gegenüber – unterschiedliche Konzepte. Handdigitalisierung, die Lagegenauigkeit der Aufnahme von 1880 und eine etwa 20 Jahre jüngere Legende erhöhen die Unsicherheit; etwa ein Drittel der „verlorenen“ Fläche liegt innerhalb von 25 m einer Grenze.
 - Die DGM1-Kacheln stammen aus den Aufnahmejahren 2005–2025; entwässerter Torf sackt, daher können an Kachelrändern kleine Stufen auftreten.
-- Die YOLO-Modelle wurden auf 42 Kacheln trainiert, 32 davon aus einem einzigen 36-km²-Block. Im ganzen Testgebiet erreicht die Karte 93 % ± 4 % Genauigkeit (100 blinde Punkte; die endgültige Karte ist das Ergebnis einer Auswahl zwischen mehreren gegen diese Punkte geprüften Varianten, daher ist der Wert leicht optimistisch). Nasse Wiese ist die unsicherste Klasse (Nutzergenauigkeit 0,86), die Grasbüschel-Konfidenzen des zweiten Modells sind instabil, und Moornamen werden nicht gelesen. Flächen um Torfstiche werden als Quadrate statt als ganze Felder kartiert. Die Regeln wurden auf einem Block abgestimmt; andere Landesteile (Marsch, Hochmoore, östliches Hügelland) bräuchten eigene Prüfungen.
+- Die YOLO-Modelle wurden auf 42 Kacheln trainiert, 32 davon aus einem einzigen 36-km²-Block. Im ganzen Testgebiet erreicht die Karte 93 % ± 4 % Genauigkeit (100 blinde Punkte; die endgültige Karte ist das Ergebnis einer Auswahl zwischen mehreren gegen diese Punkte geprüften Varianten, daher ist der Wert leicht optimistisch). Nasse Wiese ist die unsicherste Klasse (Nutzergenauigkeit 0,86), die Grasbüschel-Konfidenzen des zweiten Modells sind instabil, und Moornamen werden nicht gelesen. Heide bleibt die schwächste Klasse; ein Modell mit zwei Grasbüschel-Klassen hat die veröffentlichte Karte in einem neuen blinden Test nicht geschlagen (siehe oben). Flächen um Torfstiche werden als Quadrate statt als ganze Felder kartiert. Die Regeln wurden auf einem Block abgestimmt; andere Landesteile (Marsch, Hochmoore, östliches Hügelland) bräuchten eigene Prüfungen.
 - Das Stream Burning nutzt die Mittellinien des Gewässernetzes; breite Flüsse und Drainagen werden nicht abgebildet.
 
 ## Daten und Lizenzen

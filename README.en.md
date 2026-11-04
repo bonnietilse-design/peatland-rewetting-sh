@@ -72,6 +72,7 @@ Hand digitising doesn't scale beyond a few sheets, so I tested whether the same 
 | 06b | `06b_predict.py` | detections on all 361 tiles, duplicates merged → map coordinates |
 | 06c | `06c_detections_to_polygons.py` | dash filter + tufts + Torfstich → 1880 classes on a 25 m grid; tuned on the west half, checked on the east half |
 | 06v | `06v_accuracy_check.py` | blind accuracy check: 100 stratified random points outside the block, read by me from the map, area-weighted accuracy (Olofsson et al. 2014) |
+| 06u | `06u_disagreement_check.py` | blind check of two maps only where they disagree – used to decide whether a new model replaces the published map |
 
 **Symbol detection** (4 test tiles never used for training, confidence ≥ 0.20, before merging duplicates): tufts recall 0.75 / precision 0.59; Torfstich 3 of 4 found. The model finds most tufts but with low confidence, so the threshold matters more than the usual default.
 
@@ -131,6 +132,12 @@ The remaining nasse Wiese errors sat in **dry meadow** (*trockene Wiese*, rows o
 | per field | 0.736 | **0.866** |
 
 The two were equal on the west half, so I set a rule **before** looking at the check points: within 0.01 κ, the field method wins, because it follows the digitising rule "boundaries follow the field line". In the blind check it fixes two of the three dry-meadow errors but misses three sparse wet meadows; 87 instead of 88 of the 100 points are right, while the area-weighted accuracy rises from 91 % to 93 % because one corrected point carries a large weight. Overall: about as accurate, with boundaries that follow the fields as they were drawn.
+
+### Two tuft classes – tried, not adopted
+
+The map separates heath (Heide) from Moor through the rules, and heath was its weakest class. I tried to fix that in the model instead: from train9 to train13 I labelled heath tufts and Bruch (fen) tufts as two classes, added heath tiles from three more map sheets (Dosenmoor, Lürschau, Segeberger Heide; 419 heath tufts in the end), gave the validation split its own heath tiles and retrained five times.
+
+The symbol check improved (heath F1 on the test tiles up to 0.59), and the best model (train13) raised Heide producer's accuracy on the old 100 points from 0.78 (published map) to 0.83 at the same overall accuracy (93 % ± 4 %). Because those 100 points had been used to choose between variants, I decided beforehand that a switch had to win a new blind test. `06u` draws points only where the published map and the new one disagree (1,041 ha, 3.9 % of the checked area) – everywhere else both are equally right or wrong. On 40 such points the published map was right 16 times, train13 14 times (difference −0.2 percentage points, 95 %: −1.3 to +0.9). A tie, so the published map stays. Each retrain on more labels swapped errors between the two tuft types rather than removing them. Full log: [`docs/yolo_experiments.md`](docs/yolo_experiments.md).
 
 ## Repository structure
 
@@ -196,7 +203,7 @@ Alternatively, `environment.yml` describes an equivalent conda environment. Data
 - The DEM does not show pipe drains, culverts or pumping stations, which control water in fen landscapes; the test area is a hand-drawn polygon, not a real catchment, so only complete sub-catchments are used.
 - The historical comparison sets map *signatures* against a *soil* map – different concepts. Hand digitising, the positional accuracy of the 1880 survey and a legend ~20 years younger than the sheets add uncertainty; about a third of the "lost" area lies within 25 m of a boundary.
 - DGM1 tiles come from survey years 2005–2025; drained peat subsides, so tile edges can show small steps.
-- The YOLO models were trained on 42 tiles, 32 of them from one 36 km² block. Across the whole test area the map reaches 93 % ± 4 % accuracy (100 blind points; the final map is the result of choosing between several variants checked against these points, so this figure is slightly optimistic), nasse Wiese is the least certain class (user's accuracy 0.86), the second model's tuft confidences are unstable, and moor names are not read. Land around peat cuttings is mapped as squares rather than whole fields. The rules were tuned on one block; other parts of the state (marsh, raised bogs, eastern hills) would need their own checks.
+- The YOLO models were trained on 42 tiles, 32 of them from one 36 km² block. Across the whole test area the map reaches 93 % ± 4 % accuracy (100 blind points; the final map is the result of choosing between several variants checked against these points, so this figure is slightly optimistic), nasse Wiese is the least certain class (user's accuracy 0.86), the second model's tuft confidences are unstable, and moor names are not read. Heath (Heide) stays the weakest class; a two-class tuft model did not beat the published map in a new blind test (see above). Land around peat cuttings is mapped as squares rather than whole fields. The rules were tuned on one block; other parts of the state (marsh, raised bogs, eastern hills) would need their own checks.
 - Stream burning uses the centre lines of the water-body network; wide rivers and pipe drains are not represented.
 
 ## Data and licences
