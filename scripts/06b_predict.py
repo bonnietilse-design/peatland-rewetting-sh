@@ -35,7 +35,8 @@ import config as cfg  # noqa: E402
 
 Y = cfg.YOLO
 NAMES = dict(enumerate(Y["classes"]))
-MERGE_M = {"tuft": 8.0, "torfstich": 20.0}
+MERGE_M = {"tuft": 8.0, "torfstich": 20.0, "heath_tuft": 8.0}
+GROUP = {"heath_tuft": "tuft"}       # a heath and a Bruch box on the same symbol: keep the more confident
 DEFAULT_WEIGHTS = cfg.DATA_INTERIM / "yolo" / "runs" / "detect" / "runs" / "train2" / "weights" / "best.pt"
 
 
@@ -54,7 +55,10 @@ def world_file(png: Path):
 def merge(rows: list[dict]) -> list[dict]:
     out = []
     for name in NAMES.values():
-        r = sorted((d for d in rows if d["cls"] == name), key=lambda d: -d["conf"])
+        if name in GROUP:
+            continue                                   # merged together with its group
+        members = {name} | {k for k, v in GROUP.items() if v == name}
+        r = sorted((d for d in rows if d["cls"] in members), key=lambda d: -d["conf"])
         if not r:
             continue
         xy = np.array([[d["x"], d["y"]] for d in r])

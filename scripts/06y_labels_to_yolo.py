@@ -59,11 +59,11 @@ def read_inputs():
         sys.exit("No tiles with use = 'label' in tiles.gpkg – save the edits in QGIS first.")
     tiles["name"], tiles["src_dir"], tiles["extra"] = (tiles.tile_id,
                                                        str(cfg.tile_dir(cfg.YOLO_AREAS["block"])), 0)
-    # other areas: use = 'label' -> training, use = 'test' -> extra test tiles
+    # other areas: use = 'label' -> training, 'val' -> extra val tiles, 'test' -> extra test tiles
     for area, A in cfg.YOLO_AREAS.items():
         if area == "block":
             continue
-        extra = labelled(A["tile_index"], ("label", "done", "test"))
+        extra = labelled(A["tile_index"], ("label", "done", "val", "test"))
         if not len(extra):
             continue
         extra["name"] = f"{area}_" + extra.tile_id
@@ -81,8 +81,10 @@ def read_inputs():
 def object_boxes(tufts, torf) -> gpd.GeoDataFrame:
     """All objects as axis-aligned boxes in map coordinates."""
     h = Y["tuft_box_m"] / 2
-    rows = [{"cls": "tuft", "geometry": box(p.x - h, p.y - h, p.x + h, p.y + h)}
-            for p in tufts.geometry]
+    # field "heath" = 1 marks a heath tuft (alone on its base line, no dashes)
+    heath = tufts["heath"].fillna(0).astype(int) if "heath" in tufts.columns else pd.Series(0, index=tufts.index)
+    rows = [{"cls": "heath_tuft" if hz == 1 else "tuft", "geometry": box(p.x - h, p.y - h, p.x + h, p.y + h)}
+            for p, hz in zip(tufts.geometry, heath)]
     rows += [{"cls": "torfstich", "geometry": box(*g.bounds)} for g in torf.geometry]
     return gpd.GeoDataFrame(rows, crs=cfg.TARGET_CRS)
 
@@ -95,7 +97,7 @@ def yolo_lines(tile_geom, objs: gpd.GeoDataFrame) -> tuple[list[str], list[dict]
         inter = o.geometry.intersection(tile_geom)
         if inter.is_empty:
             continue
-        if o.cls == "tuft":
+        if o.cls in ("tuft", "heath_tuft"):
             c = o.geometry.centroid                 # tuft counts if its point is inside
             if not tile_geom.contains(c):
                 continue
@@ -166,15 +168,18 @@ def main() -> None:
         for k in kept:
             k["tile_id"] = t.name
         kept_all += kept
-    tiles["n_tuft"] = [sum(l.startswith(f"{CLS['tuft']} ") for l in lines_per_tile[t])
-                       for t in tiles.name]
+    # n_tuft = all tufts (Bruch + heath), so the split stays as in earlier rounds
+    tuft_ids = tuple(f"{CLS[c]} " for c in ("tuft", "heath_tuft") if c in CLS)
+    tiles["n_tuft"] = [sum(l.startswith(tuft_ids) for l in lines_per_tile[t]) for t in tiles.name]
+    tiles["n_heath"] = ([sum(l.startswith(f"{CLS['heath_tuft']} ") for l in lines_per_tile[t])
+                         for t in tiles.name] if "heath_tuft" in CLS else 0)
     tiles["n_torfstich"] = [sum(l.startswith(f"{CLS['torfstich']} ") for l in lines_per_tile[t])
                             for t in tiles.name]
     tiles["content"] = ["torfstich" if b else "tufts" if a else "empty"
                         for a, b in zip(tiles.n_tuft, tiles.n_torfstich)]
     block = tiles[tiles.extra == 0]
     split = split_tiles(block)                       # same as round 1
-    tiles["split"] = [split.get(t, "train") if e == 0 else ("test" if u == "test" else "train")
+    tiles["split"] = [split.get(t, "train") if e == 0 else (u if u in ("val", "test") else "train")
                       for t, e, u in zip(tiles.tile_id, tiles.extra, tiles["use"])]
 
     for t in tiles.itertuples():
@@ -202,12 +207,13 @@ def main() -> None:
 
     s = (tiles.groupby("split")
          .agg(tiles=("tile_id", "size"), empty=("content", lambda c: (c == "empty").sum()),
-              tufts=("n_tuft", "sum"), torfstich=("n_torfstich", "sum"))
+              tufts=("n_tuft", "sum"), heath_tufts=("n_heath", "sum"),
+              torfstich=("n_torfstich", "sum"))
          .reindex(["train", "val", "test"]).fillna(0).astype(int))
     outside = len(tufts) - int(tiles.n_tuft.sum())
     write_report("06y_labels_to_yolo", "YOLO dataset from QGIS labels", [
         f"- labelled tiles: **{len(tiles)}** ({Y['tile_m']} m → {Y['tile_px']} px), "
-        f"of which {int(tiles.extra.sum())} from other areas (use 'label' → training, 'test' → test)",
+        f"of which {int(tiles.extra.sum())} from other areas (use 'label' → training, 'val' → val, 'test' → test)",
         f"- objects: {int(tiles.n_tuft.sum())} tufts (boxes {Y['tuft_box_m']} m), "
         f"{int(tiles.n_torfstich.sum())} Torfstich chains",
         f"- tuft points outside the labelled tiles (ignored): {outside}", "",

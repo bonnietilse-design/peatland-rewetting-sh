@@ -23,7 +23,8 @@ from ultralytics import YOLO
 TILE_M, TILE_PX = 320, 640           # must match config.YOLO
 MATCH_M = 8                          # half a tuft box
 CONFS = [0.05, 0.08, 0.10, 0.11, 0.12, 0.13, 0.14, 0.15, 0.17, 0.20, 0.25, 0.35, 0.50]
-NAMES = {0: "tuft", 1: "torfstich"}
+NAMES = {0: "tuft", 1: "torfstich", 2: "heath_tuft"}
+ANY_TUFT = (0, 2)                    # also reported together: "all tufts", class ignored
 
 
 def read_labels(txt: Path) -> np.ndarray:
@@ -72,16 +73,17 @@ def main() -> None:
     tol = MATCH_M / TILE_M                            # in 0-1 tile units
     print(f"\nmodel: {weights}\nsplit: {split}{' / ' + area if area else ''} ({len(imgs)} tiles), "
           f"match radius {MATCH_M} m\n")
-    for cls, name in NAMES.items():
+    for cls, name in list(NAMES.items()) + [(ANY_TUFT, "all tufts (Bruch + heath, class ignored)")]:
         print(f"{name}:")
         print("  conf   labelled  predicted  found   recall  precision")
         for conf in CONFS:
             n_gt = n_pr = n_ok = 0
             for p in imgs:
                 gt = read_labels(lab_dir / f"{p.stem}.txt")
-                gt = gt[gt[:, 0] == cls][:, 1:]
+                cl = cls if isinstance(cls, tuple) else (cls,)
+                gt = gt[np.isin(gt[:, 0], cl)][:, 1:]
                 b = preds[p.stem].boxes
-                keep = (b.cls.numpy() == cls) & (b.conf.numpy() >= conf)
+                keep = np.isin(b.cls.numpy(), cl) & (b.conf.numpy() >= conf)
                 pr = b.xywhn.numpy()[keep][:, :2]
                 n_gt, n_pr = n_gt + len(gt), n_pr + len(pr)
                 n_ok += match(gt, pr, tol)

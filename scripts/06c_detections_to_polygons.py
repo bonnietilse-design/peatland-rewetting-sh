@@ -99,6 +99,10 @@ def torf_layers(torf, min_chains, near_cells):
     recurring = (n >= min_chains) & (torf > 0)
     torf_moor = nd.binary_dilation(recurring, structure=np.ones((near_cells, near_cells)))
     return recurring, torf_moor
+# Heide/Moor split. With a 3-class model (tuft = Bruch tuft, heath_tuft) the
+# split comes from the tuft classes: Moor where at least half of the tufts in
+# the 75 m window are Bruch tufts. With a 2-class model: dash density (as before).
+STATE = {"bruch_w": None}
 NAMES = {0: "–", 1: "Moor", 2: "nasse Wiese", 3: "Heide"}
 COLOURS = ["#ffffff", "#8c510a", "#2166ac", "#762a83"]
 
@@ -230,26 +234,53 @@ def classify(tuft_w, dash, torf_moor, t_min, d_min):
     out = np.zeros(tuft_w.shape, int)
     wet = dash >= d_min
     out[wet] = 2
-    out[(tuft_w >= t_min) & ~wet] = 3
-    out[(tuft_w >= t_min) & wet] = 1
+    tufted = tuft_w >= t_min
+    if STATE["bruch_w"] is not None:
+        moor = STATE["bruch_w"] * 2 >= tuft_w
+        out[tufted & moor] = 1
+        out[tufted & ~moor] = 3
+    else:
+        out[tufted & ~wet] = 3
+        out[tufted & wet] = 1
     out[torf_moor] = 1
     return majority(out)
 
 
+# "region" (28 Oct): compare all heath and all Moor in one connected tufted
+# area (Heide + Moor cells together). Splitting a heath into pieces by a few
+# Moor fields no longer changes the result. "patch" = the rule before 28 Oct:
+# each heath piece against the Moor touching it (sensitive to fragmentation:
+# with the train8 detections a 268 ha heath fell apart and became Moor).
+HEATH_RULE = "region" if "region" in sys.argv[1:] else "patch"   # "patch" = published map; add "region" on the command line to test the variant (see docs/yolo_experiments.md)
+
+
 def heath_in_moor(p, recurring, r_cells):
     """Heath inside a moor becomes Moor: a Heide patch near recurring Torfstich,
-    or touching Moor that is at least as large as the heath patch itself.
-    (A large heath with a few moor-like cells at its edge stays heath.)"""
+    or - in a connected area of Heide + Moor - when that area holds at least
+    as much Moor as Heide. (A large heath with a few moor-like cells or fields
+    inside or at its edge stays heath.)"""
     near = nd.binary_dilation(recurring, structure=np.ones((r_cells, r_cells)))
     hl, hn = nd.label(p == 3)
     ml, _ = nd.label(p == 1)
     out = p.copy()
     if hn == 0:
         return out
+    near_hit = set(np.unique(hl[near & (hl > 0)]))
+    if HEATH_RULE == "region":
+        # 1. only the heath cells near recurring Torfstich become Moor (before:
+        #    the whole heath patch - with train8 a 447 ha heath flipped because
+        #    one corner came within 100 m of a Torfstich group)
+        out[(p == 3) & near] = 1
+        # 2. the rest of each heath follows its connected Heide + Moor area
+        rl, _ = nd.label((out == 3) | (out == 1))
+        r_moor = np.bincount(rl[out == 1], minlength=rl.max() + 1)
+        r_heath = np.bincount(rl[out == 3], minlength=rl.max() + 1)
+        flip = (out == 3) & (r_moor[rl] >= r_heath[rl])
+        out[flip] = 1
+        return out
     m_size = np.bincount(ml.ravel())
     h_size = np.bincount(hl.ravel())
     touch = nd.grey_dilation(ml, size=3)            # Moor label next to each cell
-    near_hit = set(np.unique(hl[near & (hl > 0)]))
     for i in range(1, hn + 1):
         cells = hl == i
         if i in near_hit:
@@ -317,8 +348,15 @@ def apply_aoi(det, dashes, n_dash, tuft_w, torf, gt, proj, n_r, n_c, A):
     P.setdefault("dash_mode", "window")
     dash = dashes[P["dash_mode"]]
     recurring, torf_moor = torf_layers(torf, P["torf_min"], P["torf_near"])
-    pred = heath_in_moor(classify(tuft_w, dash, torf_moor, P["t_min"], P["d_min"]),
-                         recurring, P["r_heath"])
+    base = classify(tuft_w, dash, torf_moor, P["t_min"], P["d_min"])
+    pred = heath_in_moor(base, recurring, P["r_heath"])
+    if "debug" in sys.argv[1:]:   # intermediate layers for checking the rules
+        np.savez_compressed(cfg.YOLO_RULES.parent / "06c_debug_aoi.npz", base=base.astype(np.uint8),
+                            pred=pred.astype(np.uint8), dash=dash.astype(np.float32),
+                            tuft_w=tuft_w.astype(np.float32), recurring=recurring,
+                            torf_moor=torf_moor, gt=np.array(gt),
+                            bruch_w=(STATE["bruch_w"] if STATE["bruch_w"] is not None
+                                     else np.zeros(1)).astype(np.float32))
     aoi = mask_raster(cfg.TEST_AOI, gt, proj, n_r, n_c)
     pred[~aoi] = 0
     save_outputs(pred, det, gt, proj, n_r, n_c, A["suffix"])
@@ -381,13 +419,19 @@ def main() -> None:
     ds, gt, proj = open_map(A["map_tif"])
     n_r, n_c = ds.RasterYSize // CELL, ds.RasterXSize // CELL
 
-    dash_w, n_dash, g5, line5 = dash_density(ds, n_r, n_c, gt, det[det.cls == "tuft"])
+    is_tuft = det.cls.isin(["tuft", "heath_tuft"])
+    dash_w, n_dash, g5, line5 = dash_density(ds, n_r, n_c, gt, det[is_tuft])
     ds = None
     dash_f, n_fields = field_density(dash_w, g5, line5, n_r, n_c)
     del g5, line5
     dashes = {"window": dash_w, "field": dash_f}
     log.info("dash components: %d; fields from the map's field lines: %d", n_dash, n_fields)
-    tuft = count_grid(det[det.cls == "tuft"], gt, n_r, n_c)
+    tuft = count_grid(det[is_tuft], gt, n_r, n_c)
+    if (det.cls == "heath_tuft").any():
+        bruch = count_grid(det[det.cls == "tuft"], gt, n_r, n_c)
+        STATE["bruch_w"] = nd.uniform_filter(bruch, 3, mode="constant") * 9
+        log.info("tuft classes: %d Bruch tufts, %d heath tufts -> Heide/Moor from the classes",
+                 int((det.cls == "tuft").sum()), int((det.cls == "heath_tuft").sum()))
     tuft_w = nd.uniform_filter(tuft, 3, mode="constant") * 9            # sum over 3 × 3
     torf = count_grid(det[det.cls == "torfstich"], gt, n_r, n_c)
 
