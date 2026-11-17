@@ -46,7 +46,7 @@ According to the Land Schleswig-Holstein (Moor-Klimaschutz, Jan 2024), carbon-ri
 
 **Stream burning (step 05).** In flat fen land many ditches are narrower than a 5 m cell or run through culverts, so a flow model on the bare DEM draws streams beside the real watercourses. I lower the DEM by 3 m along the official water-body network (ATKIS Basis-DLM, 1,885 km of lines in the test area, many of them field ditches) before running `r.watershed`. The modelled streams now follow the rivers and ditches; the number of sub-catchments drops from 367 to 350, and the CO2 target in step 07 is reached with 78 instead of 82 of them. Wide rivers are burned only along their centre line, so a second, parallel stream can remain inside the river bed.
 
-Each step writes a short report to [`docs/reports/`](docs/reports/). A 40-page explanation of the whole project is in [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf) (German version: [`docs/peatland_project_report_2026-10-26_de.pdf`](docs/peatland_project_report_2026-10-26_de.pdf)).
+Each step writes a short report to [`docs/reports/`](docs/reports/). A 46-page explanation of the whole project (status 17 November 2026, with the updates of 4 November in chapter 11 and of 17 November in chapter 12 – the state-wide map, its blind check and the comparison with today's peat soils) is in [`docs/peatland_project_report_2026-11-17_updated.pdf`](docs/peatland_project_report_2026-11-17_updated.pdf) (German version: [`docs/peatland_project_report_2026-11-17_aktualisiert_de.pdf`](docs/peatland_project_report_2026-11-17_aktualisiert_de.pdf)).
 
 ### Historical map (step 06)
 
@@ -145,7 +145,7 @@ The symbol check improved (heath F1 on the test tiles up to 0.59), and the best 
 
 The whole chain – tiles, YOLO, dashes per field, the rules – is also packaged as a QGIS Processing tool ([`qgis_plugin/wetland1880`](qgis_plugin/wetland1880)), so the 1880 map can be read for any other area. On the test area it reproduces the published map within half a percent for Moor and nasse Wiese (Moor 4,602 ha, nasse Wiese 7,132 ha, Heide 870 ha; 6½ minutes on a laptop CPU). The small differences come from the plugin cutting its own tiles.
 
-- Download `wetland1880.zip` (models included) from the [latest release](https://github.com/bonnietilse-design/peatland-rewetting-sh/releases/latest) and install it via *Plugins → Manage and Install Plugins → Install from ZIP*.
+- Download `wetland1880_v0.2.0.zip` (models included) from the [latest release](https://github.com/bonnietilse-design/peatland-rewetting-sh/releases/latest) and install it via *Plugins → Manage and Install Plugins → Install from ZIP*.
 - YOLO runs in a separate Python environment (`python -m venv yolo-env`, then `pip install ultralytics`); the tool asks for that environment's `python.exe`. Nothing needs to be installed into QGIS's own Python.
 - Processing Toolbox → *Wetland 1880 Reader* → *Classify 1878–80 map (YOLO + rules)*: input is the 1 m Chronologen map (WCS), optionally an area of interest.
 

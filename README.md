@@ -46,7 +46,7 @@ Laut Land Schleswig-Holstein (Moor-Klimaschutz, Jan. 2024) bedecken kohlenstoffr
 
 **Stream Burning (Schritt 05).** In flachem Niedermoor sind viele Gräben schmaler als eine 5-m-Zelle oder verlaufen durch Durchlässe, sodass ein Abflussmodell auf dem reinen DGM Gewässer neben die echten Wasserläufe legt. Ich senke das DGM entlang des amtlichen Gewässernetzes (ATKIS Basis-DLM, 1.885 km Linien im Testgebiet, viele davon Feldgräben) um 3 m ab, bevor `r.watershed` läuft. Die modellierten Gewässer folgen jetzt den Flüssen und Gräben; die Zahl der Teileinzugsgebiete sinkt von 367 auf 350, und das CO2-Ziel in Schritt 07 wird mit 78 statt 82 davon erreicht. Breite Flüsse werden nur entlang ihrer Mittellinie eingebrannt, daher kann im Flussbett ein zweiter, paralleler Wasserlauf übrig bleiben.
 
-Jeder Schritt schreibt einen kurzen Bericht nach [`docs/reports/`](docs/reports/). Eine ausführliche Erläuterung des ganzen Projekts (44 Seiten) steht in [`docs/peatland_project_report_2026-10-26_de.pdf`](docs/peatland_project_report_2026-10-26_de.pdf); die Abbildungen darin sind englisch beschriftet. Englische Fassung: [`docs/peatland_project_report_2026-10-26.pdf`](docs/peatland_project_report_2026-10-26.pdf).
+Jeder Schritt schreibt einen kurzen Bericht nach [`docs/reports/`](docs/reports/). Eine ausführliche Erläuterung des ganzen Projekts (50 Seiten, Stand 17. November 2026, mit den Nachträgen vom 4. November in Kapitel 11 und vom 17. November in Kapitel 12 – die landesweite Karte, ihre Blindprüfung und der Vergleich mit den heutigen Moorböden) steht in [`docs/peatland_project_report_2026-11-17_aktualisiert_de.pdf`](docs/peatland_project_report_2026-11-17_aktualisiert_de.pdf); die Abbildungen der Kapitel 1–11 sind englisch beschriftet. Englische Fassung: [`docs/peatland_project_report_2026-11-17_updated.pdf`](docs/peatland_project_report_2026-11-17_updated.pdf).
 
 ### Historische Karte (Schritt 06)
 
@@ -145,7 +145,7 @@ Die Signaturprüfung wurde besser (Heide-F1 auf den Testkacheln bis 0,59), und d
 
 Die ganze Kette – Kacheln, YOLO, Strichdichte je Feld, die Regeln – gibt es auch als QGIS-Processing-Werkzeug ([`qgis_plugin/wetland1880`](qgis_plugin/wetland1880)), sodass die Karte von 1880 für jedes andere Gebiet gelesen werden kann. Im Testgebiet reproduziert es die veröffentlichte Karte für Moor und nasse Wiese auf ein halbes Prozent genau (Moor 4.602 ha, nasse Wiese 7.132 ha, Heide 870 ha; 6½ Minuten auf einer Laptop-CPU). Die kleinen Abweichungen kommen daher, dass das Plugin seine eigenen Kacheln schneidet.
 
-- `wetland1880.zip` (mit Modellen) aus dem [neuesten Release](https://github.com/bonnietilse-design/peatland-rewetting-sh/releases/latest) herunterladen und über *Erweiterungen → Erweiterungen verwalten und installieren → Aus ZIP installieren* installieren.
+- `wetland1880_v0.2.0.zip` (mit Modellen) aus dem [neuesten Release](https://github.com/bonnietilse-design/peatland-rewetting-sh/releases/latest) herunterladen und über *Erweiterungen → Erweiterungen verwalten und installieren → Aus ZIP installieren* installieren.
 - YOLO läuft in einer eigenen Python-Umgebung (`python -m venv yolo-env`, dann `pip install ultralytics`); das Werkzeug fragt nach deren `python.exe`. In das Python von QGIS muss nichts installiert werden.
 - Werkzeugkiste → *Wetland 1880 Reader* → *Classify 1878–80 map (YOLO + rules)*: Eingabe ist die 1-m-Chronologen-Karte (WCS), optional ein Untersuchungsgebiet.
 
